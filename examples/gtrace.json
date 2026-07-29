@@ -1,0 +1,17 @@
+{
+  "enabled": true,
+  "endpoint": "https://llm-openway.guance.com",
+  "tracePath": "v1/write/otel-llm",
+  "metricsPath": "v1/write/otel-metrics",
+  "headers": {
+    "X-Token": "<your-token>",
+    "To-Headless": "true"
+  },
+  "resourceAttributes": {
+    "deployment.environment": "prod",
+    "app_id": "opencode-monitor",
+    "app_name": "OpenCode OTEL",
+    "agent_type": "assistant",
+    "agent_source": "opencode"
+  }
+}
