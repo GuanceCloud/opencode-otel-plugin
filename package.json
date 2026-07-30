@@ -1,6 +1,6 @@
 {
   "name": "opencode-otel-plugin",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "OpenCode observability plugin using gtrace AI semantic conventions and OTLP/HTTP Protobuf",
   "type": "module",
   "main": "./dist/index.js",

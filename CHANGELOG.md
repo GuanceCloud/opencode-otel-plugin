@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.2] - 2026-07-30
+
+### Changed
+
+- Simplified `README.md` into a shorter customer-facing overview
+- Removed remaining Chinese text from repository files
+- Kept release installation as the primary delivery path
+
+### Documentation
+
+- Updated customer install guide to reference `v0.1.2`
+
 ## [0.1.1] - 2026-07-30
 
 ### Added

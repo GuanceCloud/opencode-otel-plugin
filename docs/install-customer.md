@@ -1,7 +1,7 @@
 # OpenCode OTel Plugin Customer Installation Guide
 
 Date: 2026-07-30  
-Applicable release: `v0.1.1` and later
+Applicable release: `v0.1.2` and later
 
 ## 1. Requirements
 
@@ -117,7 +117,7 @@ If you want to pin a fixed version, replace `latest` with a specific release tag
 
 ```bash
 curl -fsSL https://github.com/GuanceCloud/opencode-otel-plugin/releases/latest/download/install-release.sh \
-  | bash -s -- v0.1.1 \
+  | bash -s -- v0.1.2 \
       --endpoint https://llm-openway.guance.com \
       --x-token <your-token>
 ```
