@@ -198,7 +198,7 @@ npm run package:release
 
 默认会在 `release-assets/` 下生成上述两个文件。然后：
 
-1. 打 Git tag，例如 `v0.1.0`
+1. 打 Git tag，例如 `v0.1.1`
 2. 在 GitHub 上创建对应 Release
 3. 上传 `release-assets/install-release.sh`
 4. 上传 `release-assets/opencode-otel-plugin.tar.gz`
@@ -310,4 +310,5 @@ npm test
 npm run build
 ```
 
-客户安装文档见 [docs/install-customer.md](docs/install-customer.md)。
+Customer installation guide: [docs/install-customer.md](docs/install-customer.md)  
+Changelog: [CHANGELOG.md](CHANGELOG.md)

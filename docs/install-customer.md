@@ -1,23 +1,23 @@
-# OpenCode OTel Plugin 客户安装说明
+# OpenCode OTel Plugin Customer Installation Guide
 
-适用日期：2026-07-30  
-适用 Release：`v0.1.0` 及后续版本
+Date: 2026-07-30  
+Applicable release: `v0.1.1` and later
 
-## 1. 安装要求
+## 1. Requirements
 
-- 已安装 OpenCode
-- Linux / macOS 环境
-- 机器可访问 GitHub Release
-- 本机具备：
+- OpenCode is already installed
+- Linux or macOS
+- Access to GitHub Releases
+- The host has:
   - `bash`
   - `curl`
   - `tar`
   - `gzip`
   - Node.js 20+
 
-## 2. 一键安装
+## 2. One-line installation
 
-将下面命令中的参数替换为客户自己的值后执行：
+Replace the parameters below with customer-specific values and run:
 
 ```bash
 curl -fsSL https://github.com/GuanceCloud/opencode-otel-plugin/releases/latest/download/install-release.sh \
@@ -28,7 +28,7 @@ curl -fsSL https://github.com/GuanceCloud/opencode-otel-plugin/releases/latest/d
       --tag agent_name=<agent-name>
 ```
 
-示例：
+Example:
 
 ```bash
 curl -fsSL https://github.com/GuanceCloud/opencode-otel-plugin/releases/latest/download/install-release.sh \
@@ -36,41 +36,41 @@ curl -fsSL https://github.com/GuanceCloud/opencode-otel-plugin/releases/latest/d
       --endpoint https://llm-openway.guance.com \
       --x-token agent_ca7a50af033e43fc9f53c7664d31d04a \
       --tag agent_id=agent_9cf885f06aaf11f1831e47f206e21a2d \
-      --tag agent_name=牛码AI
+      --tag agent_name=Nioma AI
 ```
 
-## 3. 安装脚本会做什么
+## 3. What the installer does
 
-安装脚本会自动完成以下动作：
+The installer automatically:
 
-- 下载 GitHub Release 安装包
-- 安装插件到 `~/.config/opencode/plugins/opencode-otel-plugin`
-- 安装插件运行时依赖
-- 写入或更新 `~/.config/opencode/opencode.json`
-- 写入或更新 `~/.config/opencode/gtrace.json`
-- 自动关闭 OpenCode 原生 `experimental.openTelemetry`
-- 自动补齐 GTrace 所需请求头 `To-Headless=true`
+- downloads the GitHub Release package
+- installs the plugin into `~/.config/opencode/plugins/opencode-otel-plugin`
+- installs runtime dependencies
+- writes or updates `~/.config/opencode/opencode.json`
+- writes or updates `~/.config/opencode/gtrace.json`
+- disables native OpenCode `experimental.openTelemetry`
+- injects `To-Headless=true` automatically for GTrace installs
 
-## 4. 安装后操作
+## 4. After installation
 
-安装完成后：
+After the installer finishes:
 
-1. 重启 OpenCode
-2. 执行一次最小对话
-3. 查看本地日志
+1. Restart OpenCode
+2. Run one minimal conversation
+3. Check the local diagnostic log
 
 ```bash
 tail -n 20 ~/.config/opencode/gtrace-hook.log
 ```
 
-如果看到以下日志，说明上报正常：
+If you see the following log messages, trace and metrics upload is working:
 
 - `uploaded spans`
 - `uploaded metrics`
 
-## 5. 常用参数
+## 5. Common options
 
-可选参数示例：
+Optional example:
 
 ```bash
 curl -fsSL https://github.com/GuanceCloud/opencode-otel-plugin/releases/latest/download/install-release.sh \
@@ -82,27 +82,27 @@ curl -fsSL https://github.com/GuanceCloud/opencode-otel-plugin/releases/latest/d
       --capture-content preview
 ```
 
-常用参数说明：
+Common options:
 
-- `--endpoint`：上报地址
-- `--x-token`：GTrace / Dataway 鉴权 token
-- `--tag KEY=VALUE`：写入 `resourceAttributes`
-- `--capture-content`：可选 `none` / `preview` / `full`
+- `--endpoint`: upload endpoint
+- `--x-token`: GTrace / Dataway authentication token
+- `--tag KEY=VALUE`: writes resource attributes into `resourceAttributes`
+- `--capture-content`: one of `none`, `preview`, or `full`
 
-## 6. 安装后的配置位置
+## 6. Installed file locations
 
-- OpenCode 主配置：
+- OpenCode main config:
   - `~/.config/opencode/opencode.json`
-- 插件上报配置：
+- Plugin upload config:
   - `~/.config/opencode/gtrace.json`
-- 插件诊断日志：
+- Plugin diagnostic log:
   - `~/.config/opencode/gtrace-hook.log`
-- 插件安装目录：
+- Plugin install directory:
   - `~/.config/opencode/plugins/opencode-otel-plugin`
 
-## 7. 升级
+## 7. Upgrade
 
-升级时直接重新执行安装命令即可：
+To upgrade, rerun the same install command:
 
 ```bash
 curl -fsSL https://github.com/GuanceCloud/opencode-otel-plugin/releases/latest/download/install-release.sh \
@@ -113,23 +113,23 @@ curl -fsSL https://github.com/GuanceCloud/opencode-otel-plugin/releases/latest/d
       --tag agent_name=<agent-name>
 ```
 
-如果要固定版本，可将 `latest` 替换为具体版本号，例如：
+If you want to pin a fixed version, replace `latest` with a specific release tag, for example:
 
 ```bash
 curl -fsSL https://github.com/GuanceCloud/opencode-otel-plugin/releases/latest/download/install-release.sh \
-  | bash -s -- v0.1.0 \
+  | bash -s -- v0.1.1 \
       --endpoint https://llm-openway.guance.com \
       --x-token <your-token>
 ```
 
-## 8. 排查
+## 8. Troubleshooting
 
-如果安装后没有数据，优先检查：
+If no data appears after installation, check these first:
 
 1. `~/.config/opencode/gtrace-hook.log`
 2. `~/.config/opencode/gtrace.json`
 3. `~/.config/opencode/opencode.json`
-4. OpenCode 是否已重启
-5. `endpoint` 和 `X-Token` 是否正确
+4. Whether OpenCode was restarted
+5. Whether `endpoint` and `X-Token` are correct
 
-如需进一步排查，保留最近一段 `gtrace-hook.log` 即可。
+For further diagnosis, keep the most recent section of `gtrace-hook.log`.

@@ -52,7 +52,7 @@ Usage:
 
 Examples:
   curl -fsSL <installer-url> | bash -s -- latest --endpoint https://llm-openway.guance.com --x-token <token>
-  curl -fsSL <installer-url> | bash -s -- v0.1.0 --endpoint https://llm-openway.guance.com --x-token <token> --tag agent_name=OpenCode
+  curl -fsSL <installer-url> | bash -s -- v0.1.1 --endpoint https://llm-openway.guance.com --x-token <token> --tag agent_name=OpenCode
 
 Install options are passed to scripts/install.sh:
   --type gtrace|otlp
