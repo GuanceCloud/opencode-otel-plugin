@@ -19,6 +19,7 @@
     "prepare": "npm run build",
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
+    "package:release": "bash scripts/package-release.sh",
     "test": "vitest run",
     "test:watch": "vitest",
     "smoke:otlp": "npm run build && node scripts/smoke-otlp.mjs",

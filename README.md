@@ -40,9 +40,10 @@ TTFT、工具调用、会话状态以及经过脱敏和截断的输入输出。
 ## 要求
 
 - OpenCode 1.18 或更高版本
-- Node.js 20+ 用于构建和测试
+- Node.js 20+
+- Linux/macOS: `curl`、`tar`、`gzip`
 - OpenCode 自带的 Bun 运行时用于加载插件
-- DataKit 已开启 OpenTelemetry HTTP Trace 接收
+- DataKit 或 GTrace OpenWay 已开启 OpenTelemetry HTTP 接收
 
 DataKit 默认接收地址：
 
@@ -51,7 +52,43 @@ Trace:   http://127.0.0.1:9529/otel/v1/traces
 Metrics: http://127.0.0.1:9529/otel/v1/metrics
 ```
 
-## 构建
+## 快速安装
+
+推荐使用固定的 Release 安装语义，而不是 Git 源码目录安装：
+
+```bash
+curl -fsSL https://github.com/GuanceCloud/opencode-otel-plugin/releases/latest/download/install-release.sh \
+  | bash -s -- latest \
+      --endpoint https://llm-openway.guance.com \
+      --x-token <token> \
+      --tag agent_id=<agent-id> \
+      --tag agent_name=<agent-name>
+```
+
+例如：
+
+```bash
+curl -fsSL https://github.com/GuanceCloud/opencode-otel-plugin/releases/latest/download/install-release.sh \
+  | bash -s -- latest \
+      --endpoint https://llm-openway.guance.com \
+      --x-token agent_ca7a50af033e43fc9f53c7664d31d04a \
+      --tag agent_id=agent_9cf885f06aaf11f1831e47f206e21a2d \
+      --tag agent_name=牛码AI
+```
+
+安装脚本会自动完成：
+
+- 下载 GitHub Release 中的 `opencode-otel-plugin.tar.gz`
+- 安装插件到 `~/.config/opencode/plugins/opencode-otel-plugin`
+- 安装运行时依赖
+- 更新 `~/.config/opencode/opencode.json`
+- 更新 `~/.config/opencode/gtrace.json`
+- 自动设置 `experimental.openTelemetry=false`
+- `gtrace` 模式下自动补 `To-Headless: true`
+
+安装完成后重启 OpenCode。
+
+## 开发与构建
 
 ```bash
 cd /home/liurui/code/opencode-otel-plugin
@@ -64,75 +101,15 @@ npm run smoke:otlp
 
 构建入口是 `dist/index.js`。
 
-## 给客户通过 Git 安装
-
-建议按源码仓方式交付，不把任何真实 token、客户 endpoint、日志文件提交到仓库。
-
-客户侧安装步骤：
-
-```bash
-git clone <your-git-url> opencode-otel-plugin
-cd opencode-otel-plugin
-npm install
-```
-
-说明：
-
-- `npm install` 会自动执行 `prepare`，生成 `dist/index.js`。
-- OpenCode 运行插件时依赖当前目录下的 `node_modules`，因此不建议只拷贝 `dist/`。
-- 客户如果使用只读部署流程，也可以显式执行一次 `npm run build`。
-
-然后在客户机器上写入 `~/.config/opencode/opencode.json`：
-
-```json
-{
-  "plugin": [
-    [
-      "file:///path/to/opencode-otel-plugin",
-      {
-        "captureContent": "preview"
-      }
-    ]
-  ],
-  "experimental": {
-    "openTelemetry": false
-  }
-}
-```
-
-再写入 `~/.config/opencode/gtrace.json`：
-
-```json
-{
-  "enabled": true,
-  "endpoint": "https://llm-openway.guance.com",
-  "tracePath": "v1/write/otel-llm",
-  "metricsPath": "v1/write/otel-metrics",
-  "headers": {
-    "X-Token": "<customer-token>",
-    "To-Headless": "true"
-  }
-}
-```
-
-重启 OpenCode 后执行一次最小对话，再检查：
-
-```bash
-tail -n 20 ~/.config/opencode/gtrace-hook.log
-```
-
-看到 `uploaded spans` 和 `uploaded metrics`，说明接入成功。
-
 ## 启用插件
 
-推荐在 `~/.config/opencode/opencode.json` 中只声明插件本身。上报地址、鉴权头和
-资源属性统一放到 `~/.config/opencode/gtrace.json` 或项目 `.opencode/gtrace.json`：
+安装脚本会自动在 `~/.config/opencode/opencode.json` 中写入插件声明。默认效果等价于：
 
 ```json
 {
   "plugin": [
     [
-      "file:///home/liurui/code/opencode-otel-plugin",
+      "file:///home/liurui/.config/opencode/plugins/opencode-otel-plugin",
       {
         "captureContent": "preview"
       }
@@ -189,6 +166,7 @@ tail -n 20 ~/.config/opencode/gtrace-hook.log
 - `enabled` 现在只控制 OpenCode 这边的插件开关。
 - `codex-otel-plugin` 与 OpenCode 插件各自维护自己的 `gtrace.json`，互不影响。
 - 默认会把上报结果日志写入 `~/.config/opencode/gtrace-hook.log`。
+- 安装器会自动补 `headers.To-Headless=true`，除非你后续显式改掉。
 
 ## 发布到 Git 前的处理
 
@@ -207,7 +185,23 @@ npm test
 npm run build
 ```
 
-如果你打算给客户固定版本，建议打 Git tag，例如 `v0.1.0`，让客户按 tag 克隆或下载，避免直接跟随主干变更。
+如果你要给客户固定版本，不要让客户直接 clone 主干。应当发布 GitHub Release，并上传这两个固定文件：
+
+- `install-release.sh`
+- `opencode-otel-plugin.tar.gz`
+
+本仓库已经提供打包命令：
+
+```bash
+npm run package:release
+```
+
+默认会在 `release-assets/` 下生成上述两个文件。然后：
+
+1. 打 Git tag，例如 `v0.1.0`
+2. 在 GitHub 上创建对应 Release
+3. 上传 `release-assets/install-release.sh`
+4. 上传 `release-assets/opencode-otel-plugin.tar.gz`
 
 ## 配置
 
@@ -253,6 +247,14 @@ tail -n 100 ~/.config/opencode/gtrace-hook.log
 - `uploaded spans`
 - `uploaded metrics`
 - `failed`
+
+如果是通过 Release 安装，建议优先用这条命令验证安装链路：
+
+```bash
+tail -n 20 ~/.config/opencode/gtrace-hook.log
+```
+
+看到 `uploaded spans` 和 `uploaded metrics`，说明安装、配置和上报都已经打通。
 
 `captureContent` 支持：
 
