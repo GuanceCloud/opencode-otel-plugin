@@ -54,29 +54,6 @@ resolve_node() {
   exit 1
 }
 
-resolve_npm() {
-  if command -v npm >/dev/null 2>&1; then
-    command -v npm
-    return 0
-  fi
-
-  for candidate in \
-    "$HOME"/.nvm/versions/node/*/bin/npm \
-    "$HOME"/.volta/bin/npm \
-    /opt/homebrew/bin/npm \
-    /usr/local/bin/npm \
-    /usr/bin/npm
-  do
-    if [[ -x "$candidate" ]]; then
-      printf '%s' "$candidate"
-      return 0
-    fi
-  done
-
-  echo "Missing required command: npm" >&2
-  exit 1
-}
-
 check_node_version() {
   local node_bin="$1"
   local major
@@ -233,9 +210,13 @@ if [[ ! -f "$REPO_ROOT/package.json" ]]; then
   echo "Cannot find package.json under $REPO_ROOT" >&2
   exit 1
 fi
+if [[ ! -d "$REPO_ROOT/node_modules" ]]; then
+  echo "Cannot find prepackaged runtime dependencies under $REPO_ROOT/node_modules" >&2
+  echo "Rebuild the release package before installing." >&2
+  exit 1
+fi
 
 NODE_BIN="$(resolve_node)"
-NPM_BIN="$(resolve_npm)"
 check_node_version "$NODE_BIN"
 
 case "$INSTALL_TYPE" in
@@ -268,7 +249,9 @@ fi
 sync_plugin_runtime() {
   mkdir -p "$PLUGIN_DIR"
   rm -rf "$PLUGIN_DIR/dist"
+  rm -rf "$PLUGIN_DIR/node_modules"
   cp -R "$REPO_ROOT/dist" "$PLUGIN_DIR/dist"
+  cp -R "$REPO_ROOT/node_modules" "$PLUGIN_DIR/node_modules"
   cp "$REPO_ROOT/package.json" "$PLUGIN_DIR/package.json"
   if [[ -f "$REPO_ROOT/package-lock.json" ]]; then
     cp "$REPO_ROOT/package-lock.json" "$PLUGIN_DIR/package-lock.json"
@@ -279,10 +262,6 @@ sync_plugin_runtime() {
   if [[ -f "$REPO_ROOT/LICENSE" ]]; then
     cp "$REPO_ROOT/LICENSE" "$PLUGIN_DIR/LICENSE"
   fi
-}
-
-install_runtime_deps() {
-  (cd "$PLUGIN_DIR" && "$NPM_BIN" ci --omit=dev --ignore-scripts >/dev/null)
 }
 
 write_opencode_config() {
@@ -316,7 +295,6 @@ write_gtrace_config() {
 }
 
 sync_plugin_runtime
-install_runtime_deps
 log "installed plugin files: $PLUGIN_DIR"
 
 if [[ "$WRITE_CONFIG" -eq 1 ]]; then

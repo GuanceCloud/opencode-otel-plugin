@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.3] - 2026-07-30
+
+### Changed
+
+- Stopped running `npm ci` on customer machines during installation
+- Bundled production runtime dependencies directly into the release archive
+- Reduced installer sensitivity to host Node/npm dependency-engine warnings
+
+### Documentation
+
+- Clarified that runtime dependencies are prepackaged in the release asset
+- Updated customer install guide to reference `v0.1.3`
+
 ## [0.1.2] - 2026-07-30
 
 ### Changed

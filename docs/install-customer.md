@@ -1,7 +1,7 @@
 # OpenCode OTel Plugin Customer Installation Guide
 
 Date: 2026-07-30  
-Applicable release: `v0.1.2` and later
+Applicable release: `v0.1.3` and later
 
 ## 1. Requirements
 
@@ -13,7 +13,7 @@ Applicable release: `v0.1.2` and later
   - `curl`
   - `tar`
   - `gzip`
-  - Node.js 20+
+  - Node.js 20+ for the installer config helper
 
 ## 2. One-line installation
 
@@ -45,7 +45,7 @@ The installer automatically:
 
 - downloads the GitHub Release package
 - installs the plugin into `~/.config/opencode/plugins/opencode-otel-plugin`
-- installs runtime dependencies
+- unpacks prebuilt runtime dependencies from the release archive
 - writes or updates `~/.config/opencode/opencode.json`
 - writes or updates `~/.config/opencode/gtrace.json`
 - disables native OpenCode `experimental.openTelemetry`
@@ -117,7 +117,7 @@ If you want to pin a fixed version, replace `latest` with a specific release tag
 
 ```bash
 curl -fsSL https://github.com/GuanceCloud/opencode-otel-plugin/releases/latest/download/install-release.sh \
-  | bash -s -- v0.1.2 \
+  | bash -s -- v0.1.3 \
       --endpoint https://llm-openway.guance.com \
       --x-token <your-token>
 ```

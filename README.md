@@ -33,7 +33,7 @@ Derived metrics:
 ## Requirements
 
 - OpenCode 1.18+
-- Node.js 20+
+- Node.js 20+ for the installer config helper only
 - Linux/macOS with `bash`, `curl`, `tar`, and `gzip`
 
 ## Install
@@ -50,6 +50,7 @@ curl -fsSL https://github.com/GuanceCloud/opencode-otel-plugin/releases/latest/d
 The installer will:
 
 - install the plugin into `~/.config/opencode/plugins/opencode-otel-plugin`
+- unpack prebuilt runtime dependencies bundled in the release archive
 - update `~/.config/opencode/opencode.json`
 - update `~/.config/opencode/gtrace.json`
 - set `experimental.openTelemetry=false`
