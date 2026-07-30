@@ -18,8 +18,8 @@ afterEach(async () => {
   await Promise.all(temporaryDirectories.splice(0).map((path) => rm(path, { recursive: true })))
 })
 
-describe("Trace 生命周期", () => {
-  it("生成符合 gtrace 结构的 agent、LLM、工具、skill 和 assistant spans", async () => {
+describe("trace lifecycle", () => {
+  it("builds agent, LLM, tool, skill, and assistant spans that match the gtrace structure", async () => {
     const exporter = new InMemorySpanExporter()
     const provider = new BasicTracerProvider({
       spanProcessors: [new SimpleSpanProcessor(exporter)],
@@ -64,7 +64,7 @@ describe("Trace 生命周期", () => {
       properties: {
         info: {
           id: "session-1",
-          title: "测试会话",
+          title: "Test Session",
           version: "1.18.8",
           directory,
           time: { created: now - 10, updated: now },
@@ -92,7 +92,7 @@ describe("Trace 生命周期", () => {
             sessionID: "session-1",
             messageID: "user-1",
             type: "text",
-            text: "请执行测试",
+            text: "Please run the test",
           },
         ],
       },
@@ -156,7 +156,7 @@ describe("Trace 生命周期", () => {
           sessionID: "session-1",
           messageID: "assistant-2",
           type: "text",
-          text: "完成",
+          text: "Done",
           time: { start: now + 3, end: now + 4 },
         },
       },

@@ -17,8 +17,8 @@ afterEach(async () => {
   )
 })
 
-describe("OTLP 双信号导出", () => {
-  it("分别向 tracePath 和 metricsPath 发送 Protobuf", async () => {
+describe("dual-signal OTLP export", () => {
+  it("sends protobuf payloads to tracePath and metricsPath separately", async () => {
     const requests: Array<{ url: string; contentType?: string; body: Buffer }> = []
     const server = createServer((request, response) => {
       const chunks: Buffer[] = []

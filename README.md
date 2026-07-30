@@ -1,14 +1,15 @@
 # OpenCode OTel Plugin
 
-一个面向 OpenCode 的可观测插件。插件订阅 OpenCode 官方 Hook，按照
-[gtrace AI semantic conventions](https://github.com/GuanceCloud/gtrace-ai-semantic-conventions)
-生成 Agent Trace 和 Metrics，并通过 **OTLP/HTTP Protobuf** 上报到
-DataKit、GTrace OpenWay 或其他 OpenTelemetry Collector。传输配置和双信号
-上报方式与 `codex-otel-plugin` 保持一致。
+An observability plugin for OpenCode. It subscribes to official OpenCode hooks,
+builds Agent Traces and Metrics based on the
+[gtrace AI semantic conventions](https://github.com/GuanceCloud/gtrace-ai-semantic-conventions),
+and exports them through **OTLP/HTTP Protobuf** to DataKit, GTrace OpenWay, or
+other OpenTelemetry collectors. Its transport configuration and dual-signal
+export model follow the same pattern as `codex-otel-plugin`.
 
-## Trace 结构
+## Trace structure
 
-每个用户 turn 生成一条独立 Trace：
+Each user turn becomes one trace:
 
 ```text
 invoke_agent
@@ -19,42 +20,42 @@ invoke_agent
 └── assistant
 ```
 
-- `invoke_agent`：从 `chat.message` 开始，到 `session.idle` 或
-  `session.error` 结束。
-- `llm`：每次 `chat.params` 启动，在对应 assistant message 完成时结束。
-- `tool:<name>`：严格对应 `tool.execute.before/after`。
-- `skill:<name>`：仅当工具参数明确包含可读取的 `SKILL.md` 路径时创建，
-  并作为对应 tool span 的子节点。
-- `assistant`：最终文本输出事件，不重复记录 token。
+- `invoke_agent`: starts from `chat.message` and ends at `session.idle` or `session.error`
+- `llm`: starts at each `chat.params` event and ends when the matching assistant message completes
+- `tool:<name>`: maps directly to `tool.execute.before/after`
+- `skill:<name>`: created only when tool arguments contain a readable `SKILL.md` path, and is attached as a child of the tool span
+- `assistant`: final text output event without duplicating token accounting
 
-采集模型、Provider、token、缓存 token、reasoning token、finish reason、
-TTFT、工具调用、会话状态以及经过脱敏和截断的输入输出。
+Collected data includes model, provider, token usage, cache tokens, reasoning
+tokens, finish reason, TTFT, tool calls, session status, and redacted/truncated
+input and output content.
 
-同批派生并上报：
+Derived metrics exported from the same turn:
 
 - `gen_ai.workflow.duration`
 - `gen_ai.agent.operation.count`
 - `gen_ai.agent.operation.duration`
 - `gen_ai.client.token.usage`
 
-## 要求
+## Requirements
 
-- OpenCode 1.18 或更高版本
+- OpenCode 1.18 or later
 - Node.js 20+
-- Linux/macOS: `curl`、`tar`、`gzip`
-- OpenCode 自带的 Bun 运行时用于加载插件
-- DataKit 或 GTrace OpenWay 已开启 OpenTelemetry HTTP 接收
+- Linux/macOS with `curl`, `tar`, and `gzip`
+- OpenCode's bundled Bun runtime for plugin loading
+- DataKit or GTrace OpenWay with OTLP HTTP ingestion enabled
 
-DataKit 默认接收地址：
+Default DataKit endpoints:
 
 ```text
 Trace:   http://127.0.0.1:9529/otel/v1/traces
 Metrics: http://127.0.0.1:9529/otel/v1/metrics
 ```
 
-## 快速安装
+## Quick install
 
-推荐使用固定的 Release 安装语义，而不是 Git 源码目录安装：
+The recommended installation path is the fixed GitHub Release installer rather
+than a Git source checkout:
 
 ```bash
 curl -fsSL https://github.com/GuanceCloud/opencode-otel-plugin/releases/latest/download/install-release.sh \
@@ -65,7 +66,7 @@ curl -fsSL https://github.com/GuanceCloud/opencode-otel-plugin/releases/latest/d
       --tag agent_name=<agent-name>
 ```
 
-例如：
+Example:
 
 ```bash
 curl -fsSL https://github.com/GuanceCloud/opencode-otel-plugin/releases/latest/download/install-release.sh \
@@ -73,22 +74,22 @@ curl -fsSL https://github.com/GuanceCloud/opencode-otel-plugin/releases/latest/d
       --endpoint https://llm-openway.guance.com \
       --x-token agent_ca7a50af033e43fc9f53c7664d31d04a \
       --tag agent_id=agent_9cf885f06aaf11f1831e47f206e21a2d \
-      --tag agent_name=牛码AI
+      --tag agent_name=NiomaAI
 ```
 
-安装脚本会自动完成：
+The installer automatically:
 
-- 下载 GitHub Release 中的 `opencode-otel-plugin.tar.gz`
-- 安装插件到 `~/.config/opencode/plugins/opencode-otel-plugin`
-- 安装运行时依赖
-- 更新 `~/.config/opencode/opencode.json`
-- 更新 `~/.config/opencode/gtrace.json`
-- 自动设置 `experimental.openTelemetry=false`
-- `gtrace` 模式下自动补 `To-Headless: true`
+- downloads `opencode-otel-plugin.tar.gz` from GitHub Release
+- installs the plugin into `~/.config/opencode/plugins/opencode-otel-plugin`
+- installs runtime dependencies
+- updates `~/.config/opencode/opencode.json`
+- updates `~/.config/opencode/gtrace.json`
+- sets `experimental.openTelemetry=false`
+- injects `To-Headless: true` in `gtrace` mode
 
-安装完成后重启 OpenCode。
+Restart OpenCode after installation.
 
-## 开发与构建
+## Development and build
 
 ```bash
 cd /home/liurui/code/opencode-otel-plugin
@@ -99,11 +100,12 @@ npm run build
 npm run smoke:otlp
 ```
 
-构建入口是 `dist/index.js`。
+Build output entrypoint: `dist/index.js`
 
-## 启用插件
+## Plugin activation
 
-安装脚本会自动在 `~/.config/opencode/opencode.json` 中写入插件声明。默认效果等价于：
+The installer writes the plugin entry into `~/.config/opencode/opencode.json`.
+The default result is equivalent to:
 
 ```json
 {
@@ -121,23 +123,24 @@ npm run smoke:otlp
 }
 ```
 
-完整示例见 `examples/opencode.json`。`gtrace.json` 示例见
-`examples/gtrace.json`。修改配置后重启 OpenCode。
+See `examples/opencode.json` and `examples/gtrace.json` for complete examples.
+Restart OpenCode after changing configuration.
 
-> 自定义插件已负责导出 Trace，因此建议关闭 OpenCode 原生的
-> `experimental.openTelemetry`，避免重复上报。
+> This custom plugin already exports traces, so OpenCode native
+> `experimental.openTelemetry` should stay disabled to avoid duplicate uploads.
 
-也可以把同样的配置放入项目根目录 `opencode.json`，仅对该项目启用。
+You can also place the same configuration in a project-local `opencode.json`.
 
 ### gtrace.json
 
-插件会按 OpenCode 自己的顺序读取：
+The plugin reads configuration in this order:
 
 1. `~/.config/opencode/gtrace.json`
-2. 当前项目 `.opencode/gtrace.json`
+2. project-local `.opencode/gtrace.json`
 
-项目级配置会覆盖全局同名字段。`endpoint + tracePath + metricsPath + headers`
-的写法与 `codex-otel-plugin` 保持一致：
+Project-level values override global values with the same keys. The
+`endpoint + tracePath + metricsPath + headers` pattern matches
+`codex-otel-plugin`.
 
 ```json
 {
@@ -159,25 +162,25 @@ npm run smoke:otlp
 }
 ```
 
-可直接使用 `examples/gtrace.json` 作为模板。
+Use `examples/gtrace.json` as the template.
 
-说明：
+Notes:
 
-- `enabled` 现在只控制 OpenCode 这边的插件开关。
-- `codex-otel-plugin` 与 OpenCode 插件各自维护自己的 `gtrace.json`，互不影响。
-- 默认会把上报结果日志写入 `~/.config/opencode/gtrace-hook.log`。
-- 安装器会自动补 `headers.To-Headless=true`，除非你后续显式改掉。
+- `enabled` only controls the OpenCode plugin side
+- `codex-otel-plugin` and this OpenCode plugin keep separate `gtrace.json` files
+- upload diagnostics are written to `~/.config/opencode/gtrace-hook.log`
+- the installer injects `headers.To-Headless=true` unless you override it later
 
-## 发布到 Git 前的处理
+## Release preparation
 
-建议发布前检查这几项：
+Before publishing, verify:
 
-- 不提交 `~/.config/opencode/gtrace.json` 这类本机配置文件。
-- 不提交真实 `X-Token`、Authorization、Cookie。
-- 不提交 `~/.config/opencode/gtrace-hook.log` 或其他排查日志。
-- 不提交 `node_modules/`、`owl-reports/`、临时打包文件。
-- `examples/gtrace.json` 里只保留占位符。
-- 提交前执行一次：
+- do not commit local config files such as `~/.config/opencode/gtrace.json`
+- do not commit real `X-Token`, `Authorization`, or `Cookie` values
+- do not commit `~/.config/opencode/gtrace-hook.log` or other troubleshooting logs
+- do not commit `node_modules/`, `owl-reports/`, or temporary packaging output
+- keep placeholders only in `examples/gtrace.json`
+- run:
 
 ```bash
 npm run check
@@ -185,37 +188,38 @@ npm test
 npm run build
 ```
 
-如果你要给客户固定版本，不要让客户直接 clone 主干。应当发布 GitHub Release，并上传这两个固定文件：
+For customer delivery, publish a GitHub Release instead of telling users to
+clone the main branch. Upload these two fixed assets:
 
 - `install-release.sh`
 - `opencode-otel-plugin.tar.gz`
 
-本仓库已经提供打包命令：
+Packaging command:
 
 ```bash
 npm run package:release
 ```
 
-默认会在 `release-assets/` 下生成上述两个文件。然后：
+This generates the assets under `release-assets/`. Then:
 
-1. 打 Git tag，例如 `v0.1.1`
-2. 在 GitHub 上创建对应 Release
-3. 上传 `release-assets/install-release.sh`
-4. 上传 `release-assets/opencode-otel-plugin.tar.gz`
+1. create a Git tag such as `v0.1.1`
+2. create the matching GitHub Release
+3. upload `release-assets/install-release.sh`
+4. upload `release-assets/opencode-otel-plugin.tar.gz`
 
-## 配置
+## Configuration
 
-| 插件参数 | 环境变量 | 默认值 |
+| Plugin option | Environment variable | Default |
 | --- | --- | --- |
 | `enabled` | `OPENCODE_OTEL_ENABLED` | `true` |
 | `endpoint` | `OPENCODE_OTEL_ENDPOINT` | `http://127.0.0.1:9529` |
 | `tracePath` | `OPENCODE_OTEL_TRACE_PATH` | `otel/v1/traces` |
 | `metricsPath` | `OPENCODE_OTEL_METRICS_PATH` | `otel/v1/metrics` |
-| `otelTracesUrl` | `OPENCODE_OTEL_TRACES_URL` | 空 |
-| `otelMetricsUrl` | `OPENCODE_OTEL_METRICS_URL` | 空 |
+| `otelTracesUrl` | `OPENCODE_OTEL_TRACES_URL` | empty |
+| `otelMetricsUrl` | `OPENCODE_OTEL_METRICS_URL` | empty |
 | `headers` | `OPENCODE_OTEL_HEADERS` | `{}` |
-| `publicKey` | `OPENCODE_OTEL_PUBLIC_KEY` | 空 |
-| `secretKey` | `OPENCODE_OTEL_SECRET_KEY` | 空 |
+| `publicKey` | `OPENCODE_OTEL_PUBLIC_KEY` | empty |
+| `secretKey` | `OPENCODE_OTEL_SECRET_KEY` | empty |
 | `metricsEnabled` | `OPENCODE_OTEL_METRICS_ENABLED` | `true` |
 | `serviceName` | `OPENCODE_OTEL_SERVICE_NAME` | `gtrace-opencode` |
 | `environment` | `OPENCODE_OTEL_ENV` | `dev` |
@@ -230,59 +234,63 @@ npm run package:release
 | `debug` | `OPENCODE_OTEL_DEBUG` | `false` |
 | `hookLogFile` | `OPENCODE_OTEL_HOOK_LOG_FILE` | `~/.config/opencode/gtrace-hook.log` |
 
-插件参数优先于环境变量；环境变量优先于 `gtrace.json`。如果三者都没有，则回退到
-本地 DataKit 默认值。
+Plugin options override environment variables, and environment variables
+override `gtrace.json`. If none are provided, the plugin falls back to local
+DataKit defaults.
 
-## 排查日志
+## Troubleshooting log
 
-可直接查看本地诊断日志：
+Check the local diagnostic log directly:
 
 ```bash
 tail -n 100 ~/.config/opencode/gtrace-hook.log
 ```
 
-日志中只记录：
+Only these messages are persisted:
 
 - `gtrace disabled`
 - `uploaded spans`
 - `uploaded metrics`
 - `failed`
 
-如果是通过 Release 安装，建议优先用这条命令验证安装链路：
+For release-based installs, the simplest validation command is:
 
 ```bash
 tail -n 20 ~/.config/opencode/gtrace-hook.log
 ```
 
-看到 `uploaded spans` 和 `uploaded metrics`，说明安装、配置和上报都已经打通。
+If you see `uploaded spans` and `uploaded metrics`, installation, config, and
+export are working.
 
-`captureContent` 支持：
+`captureContent` values:
 
-- `none`：不发送提示词、回复、工具参数和结果，只保留长度及技术元数据。
-- `preview`：默认；发送最多 1024 字符的脱敏预览。
-- `full`：发送到 `maxAttributeLength` 限制内的脱敏内容。
+- `none`: do not send prompts, replies, tool arguments, or results; keep only length and technical metadata
+- `preview`: default; send a redacted preview up to 1024 characters
+- `full`: send redacted content up to `maxAttributeLength`
 
-带认证的 Collector 可以使用对象形式的 `headers`，或使用环境变量。环境变量
-同时支持 JSON 对象和逗号分隔的 `key=value`：
+Authenticated collectors can use object-style `headers` or environment
+variables. Environment variables support both JSON objects and comma-separated
+`key=value` pairs:
 
 ```bash
 export OPENCODE_OTEL_HEADERS='Authorization=Bearer xxx,x-scope=production'
 ```
 
-如果设置 `otelTracesUrl` / `otelMetricsUrl`，它们会覆盖
-`endpoint + tracePath/metricsPath`。未提供 Authorization header 时，也可以
-使用 `publicKey` / `secretKey` 自动生成 Basic Auth。
+If `otelTracesUrl` or `otelMetricsUrl` is set, it overrides
+`endpoint + tracePath/metricsPath`. If no `Authorization` header is provided,
+`publicKey` and `secretKey` can be used to generate Basic Auth automatically.
 
-## 数据安全
+## Data safety
 
-发送前会递归屏蔽常见敏感字段，包括：
+Before export, the plugin recursively redacts common sensitive fields:
 
-- Authorization、Cookie
-- API Key、Access Token、Refresh Token
-- Password、Secret、Private Key
-- 文本中的 Bearer Token 和常见 `sk-*` Token
+- Authorization, Cookie
+- API Key, Access Token, Refresh Token
+- Password, Secret, Private Key
+- Bearer tokens in free text and common `sk-*` tokens
 
-所有自由文本属性都会进行长度限制。生产环境如果不需要内容排障，建议设置：
+All free-text attributes are length-limited. In production environments where
+content-level troubleshooting is unnecessary, set:
 
 ```json
 {
@@ -290,19 +298,15 @@ export OPENCODE_OTEL_HEADERS='Authorization=Bearer xxx,x-scope=production'
 }
 ```
 
-## 已知边界
+## Known limits
 
-- OpenCode Hook 不直接暴露底层 HTTP 请求开始时间，因此 `llm` 开始时间取
-  `chat.params` 执行时间。
-- TTFT 取首次 text/reasoning part 的时间与 `chat.params` 时间之差。
-- 只有工具参数中明确出现且可以读取的 `SKILL.md` 才会上报 skill span，避免
-  根据文本提及误判。
-- OpenCode 异常事件若未携带 `sessionID`，插件无法可靠地把它关联到某一条
-  活跃 Trace。
-- OpenCode 用于生成会话标题的内部 `title` agent 调用默认不进入用户 turn，
-  避免额外产生无响应 token 的伪 `llm` span。
+- OpenCode hooks do not expose the exact lower-level HTTP request start time, so `llm` spans start at `chat.params`
+- TTFT is measured from `chat.params` to the first text/reasoning part
+- skill spans are emitted only when tool arguments explicitly contain a readable `SKILL.md`, which avoids false positives from plain text mentions
+- if an OpenCode error event does not carry `sessionID`, the plugin cannot reliably attach it to an active trace
+- the internal `title` agent used by OpenCode for session titles is excluded from user turns, avoiding fake `llm` spans with no response tokens
 
-## 开发命令
+## Development commands
 
 ```bash
 npm run check

@@ -262,7 +262,7 @@ export class TraceLifecycle {
       toolCount: 0,
       usage: { input: 0, output: 0, reasoning: 0, cacheRead: 0, cacheWrite: 0 },
     })
-    await this.log("debug", "Turn 已创建", {
+    await this.log("debug", "turn created", {
       sessionID: input.sessionID,
       agent: input.agent ?? output.message.agent,
       providerID: input.model?.providerID ?? output.message.model.providerID,
@@ -286,11 +286,12 @@ export class TraceLifecycle {
       maxOutputTokens: number | undefined
     },
   ): Promise<void> {
-    // OpenCode 会用内部 title agent 生成会话标题；它不是用户 turn 的模型步骤。
+    // OpenCode uses an internal title agent to generate session titles.
+    // It is not part of the user turn model flow.
     if (input.agent === "title") return
     const turn = this.ensureTurn(input.sessionID)
     if (turn.activeLlm) this.finishLlm(turn, undefined, "unset")
-    await this.log("debug", "LLM 请求开始", {
+    await this.log("debug", "llm request started", {
       sessionID: input.sessionID,
       providerID: input.provider?.info?.id ?? input.provider?.id ?? input.model.providerID,
       modelID: input.model.id,
@@ -346,7 +347,7 @@ export class TraceLifecycle {
     const key = this.toolKey(input.sessionID, input.callID)
     const previous = this.tools.get(key)
     if (previous) this.finishTool(previous, "error", "DuplicateToolCall")
-    await this.log("debug", "工具执行开始", {
+    await this.log("debug", "tool execution started", {
       sessionID: input.sessionID,
       callID: input.callID,
       tool: input.tool,
@@ -438,7 +439,7 @@ export class TraceLifecycle {
     )
     this.finishTool(state, "ok")
     this.tools.delete(key)
-    await this.log("debug", "工具执行完成", {
+    await this.log("debug", "tool execution completed", {
       sessionID: input.sessionID,
       callID: input.callID,
       tool: input.tool,
@@ -468,7 +469,7 @@ export class TraceLifecycle {
           created: info.time?.created,
           updated: info.time?.updated,
         })
-        await this.log("debug", "Session 信息已更新", {
+        await this.log("debug", "session metadata updated", {
           sessionID: info.id,
           title: info.title,
           version: info.version,
@@ -504,7 +505,7 @@ export class TraceLifecycle {
           )
           this.finishTool(tool, "error", type)
           this.tools.delete(key)
-          await this.log("warn", "工具执行失败", {
+          await this.log("warn", "tool execution failed", {
             sessionID: part.sessionID,
             callID: part.callID,
             tool: tool.toolName,
@@ -537,14 +538,14 @@ export class TraceLifecycle {
     if (event.type === "session.idle") {
       const sessionID = event.properties.sessionID
       if (typeof sessionID !== "string") return
-      await this.log("debug", "收到 session.idle", { sessionID })
+      await this.log("debug", "received session.idle", { sessionID })
       const turn = this.turns.get(sessionID)
       if (turn) {
         if (turn.activeLlm) this.finishLlm(turn, undefined, "unset")
         this.finishTurn(turn, "completed")
       }
       await this.runtime.forceFlush().catch((error: unknown) =>
-        this.log("warn", "OTLP forceFlush 失败", { error: errorMessage(error) }),
+        this.log("warn", "otlp forceFlush failed", { error: errorMessage(error) }),
       )
       return
     }
@@ -555,26 +556,26 @@ export class TraceLifecycle {
       const turn = this.turns.get(sessionID)
       if (!turn) return
       const error = event.properties.error
-      await this.log("warn", "收到 session.error", {
+      await this.log("warn", "received session.error", {
         sessionID,
         errorType: errorType(error),
         errorMessage: errorMessage(error),
       })
       this.finishTurn(turn, "cancelled", error)
       await this.runtime.forceFlush().catch((flushError: unknown) =>
-        this.log("warn", "OTLP forceFlush 失败", { error: errorMessage(flushError) }),
+        this.log("warn", "otlp forceFlush failed", { error: errorMessage(flushError) }),
       )
     }
   }
 
   async dispose(): Promise<void> {
-    await this.log("info", "TraceLifecycle dispose 开始", {
+    await this.log("info", "trace lifecycle dispose started", {
       activeTurns: this.turns.size,
       activeTools: this.tools.size,
     })
     for (const turn of [...this.turns.values()]) this.finishTurn(turn, "cancelled")
     await this.runtime.shutdown()
-    await this.log("info", "TraceLifecycle dispose 完成")
+    await this.log("info", "trace lifecycle dispose completed")
   }
 
   private async onAssistantCompleted(message: AssistantMessageLike): Promise<void> {
@@ -599,7 +600,7 @@ export class TraceLifecycle {
     turn.usage.cacheWrite += message.tokens.cache.write
 
     if (turn.activeLlm) this.finishLlm(turn, message, message.error ? "error" : "ok", parts)
-    await this.log("debug", "Assistant 消息完成", {
+    await this.log("debug", "assistant message completed", {
       sessionID: message.sessionID,
       messageID: message.id,
       providerID: message.providerID,
@@ -718,7 +719,7 @@ export class TraceLifecycle {
     turn.lastLlmSpanID = llm.span.spanContext().spanId
     llm.span.end(endedAt)
     turn.activeLlm = undefined
-    void this.log("debug", "LLM 请求结束", {
+    void this.log("debug", "llm request finished", {
       sessionID: turn.sessionID,
       modelID: llm.model,
       providerID: llm.provider,
@@ -787,7 +788,7 @@ export class TraceLifecycle {
     })
     turn.span.end()
     this.turns.delete(turn.sessionID)
-    void this.log("info", "Turn 已结束", {
+    void this.log("info", "turn finished", {
       sessionID: turn.sessionID,
       finalStatus,
       toolCount: turn.toolCount,
@@ -850,7 +851,7 @@ export class TraceLifecycle {
       "gen_ai.tool.name": state.toolName,
       "error.type": status === "error" ? type ?? "_OTHER" : undefined,
     })
-    void this.log("debug", "Tool span 已结束", {
+    void this.log("debug", "tool span finished", {
       sessionID: state.sessionID,
       tool: state.toolName,
       status,

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest"
 import { sanitize, stringifySanitized } from "../src/redaction.js"
 
-describe("内容脱敏", () => {
-  it("按字段名和行内模式隐藏凭证", () => {
+describe("content redaction", () => {
+  it("hides credentials by field name and inline patterns", () => {
     const result = stringifySanitized(
       {
         apiKey: "sk-abcdefghijklmnop",
@@ -19,13 +19,13 @@ describe("内容脱敏", () => {
     expect(result).toContain("[REDACTED]")
   })
 
-  it("安全处理循环引用", () => {
+  it("handles circular references safely", () => {
     const value: Record<string, unknown> = {}
     value.self = value
     expect(sanitize(value)).toEqual({ self: "[Circular]" })
   })
 
-  it("限制属性长度", () => {
+  it("limits attribute length", () => {
     const result = stringifySanitized("x".repeat(2000), 128)
     expect(result.length).toBeLessThanOrEqual(128)
     expect(result).toContain("truncated")

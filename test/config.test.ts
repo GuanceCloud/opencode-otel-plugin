@@ -13,8 +13,8 @@ function emptyContext() {
   return { home, cwd }
 }
 
-describe("配置解析", () => {
-  it("使用适合 DataKit 的默认 OTLP 地址", () => {
+describe("config resolution", () => {
+  it("uses DataKit-friendly default OTLP endpoints", () => {
     const config = resolveConfig({}, {}, emptyContext())
     expect(config.endpoint).toBe("http://127.0.0.1:9529")
     expect(config.traceUrl).toBe("http://127.0.0.1:9529/otel/v1/traces")
@@ -22,7 +22,7 @@ describe("配置解析", () => {
     expect(config.captureContent).toBe("preview")
   })
 
-  it("支持环境变量和插件参数，插件参数优先", () => {
+  it("supports environment variables and plugin options, with plugin options taking precedence", () => {
     const config = resolveConfig(
       { serviceName: "from-options", captureContent: "none" },
       {
@@ -38,7 +38,7 @@ describe("配置解析", () => {
     expect(config.captureContent).toBe("none")
   })
 
-  it("支持 codex-otel-plugin 风格的 endpoint + signal path", () => {
+  it("supports codex-otel-plugin style endpoint plus signal paths", () => {
     const config = resolveConfig(
       {
         endpoint: "https://llm-openway.guance.com",
@@ -51,7 +51,7 @@ describe("配置解析", () => {
     expect(config.metricsUrl).toBe("https://llm-openway.guance.com/v1/write/otel-metrics")
   })
 
-  it("默认读取 ~/.config/opencode/gtrace.json 与项目 .opencode/gtrace.json", () => {
+  it("reads ~/.config/opencode/gtrace.json and project .opencode/gtrace.json by default", () => {
     const base = mkdtempSync(join(tmpdir(), "opencode-otel-config-"))
     const home = join(base, "home")
     const cwd = join(base, "workspace")
@@ -91,7 +91,7 @@ describe("配置解析", () => {
     expect(config.exportTimeoutMs).toBe(25000)
   })
 
-  it("OpenCode 自己的 gtrace.json 可以关闭插件", () => {
+  it("allows OpenCode gtrace.json to disable the plugin", () => {
     const base = mkdtempSync(join(tmpdir(), "opencode-otel-enabled-"))
     const home = join(base, "home")
     const cwd = join(base, "workspace")
@@ -112,7 +112,7 @@ describe("配置解析", () => {
     expect(config.traceUrl).toBe("https://llm-openway.guance.com/v1/write/otel-llm")
   })
 
-  it("解析 OTLP 请求头", () => {
+  it("parses OTLP headers", () => {
     expect(parseHeaders("Authorization=Bearer token,x-scope=demo")).toEqual({
       Authorization: "Bearer token",
       "x-scope": "demo",

@@ -24,7 +24,7 @@ export function createFileLogger(config: PluginConfig): FileLogger {
       mkdirSync(dirname(config.hookLogFile), { recursive: true })
       appendFileSync(config.hookLogFile, serialize(level, message, extra), "utf8")
     } catch {
-      // 本地诊断日志不能反向影响主流程。
+      // Local diagnostic logging must never break the main flow.
     }
   }
 }

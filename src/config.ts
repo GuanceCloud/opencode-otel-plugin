@@ -137,7 +137,7 @@ function readJsonIfExists(file: string): {
     if (!content.trim()) return { values: {}, loaded: true }
     const parsed = JSON.parse(content)
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return { values: {}, loaded: true, warning: `配置文件不是 JSON 对象: ${file}` }
+      return { values: {}, loaded: true, warning: `config file is not a JSON object: ${file}` }
     }
     return { values: parsed as Record<string, unknown>, loaded: true }
   } catch (error) {
@@ -152,7 +152,7 @@ function readJsonIfExists(file: string): {
     return {
       values: {},
       loaded: true,
-      warning: `读取配置文件失败: ${file}`,
+      warning: `failed to read config file: ${file}`,
     }
   }
 }
