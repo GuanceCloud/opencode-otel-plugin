@@ -309,3 +309,5 @@ npm run check
 npm test
 npm run build
 ```
+
+客户安装文档见 [docs/install-customer.md](docs/install-customer.md)。
