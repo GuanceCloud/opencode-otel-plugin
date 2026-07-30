@@ -8,6 +8,7 @@ Applicable release: `v0.1.3` and later
 - OpenCode is already installed
 - Linux or macOS
 - Access to GitHub Releases
+- Windows PowerShell 5.1+ or PowerShell 7 is also supported
 - The host has:
   - `bash`
   - `curl`
@@ -37,6 +38,14 @@ curl -fsSL https://github.com/GuanceCloud/opencode-otel-plugin/releases/latest/d
       --x-token agent_ca7a50af033e43fc9f53c7664d31d04a \
       --tag agent_id=agent_9cf885f06aaf11f1831e47f206e21a2d \
       --tag agent_name=Nioma AI
+```
+
+Windows PowerShell:
+
+```powershell
+$installer = Join-Path $env:TEMP "opencode-otel-install.ps1"
+Invoke-WebRequest https://github.com/GuanceCloud/opencode-otel-plugin/releases/latest/download/install-release.ps1 -OutFile $installer
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer -Version latest -Endpoint https://llm-openway.guance.com -XToken "<your-token>" -Tag @("agent_id=<agent-id>","agent_name=<agent-name>")
 ```
 
 ## 3. What the installer does

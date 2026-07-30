@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.4] - 2026-07-30
+
+### Added
+
+- Windows PowerShell release installer: `install-release.ps1`
+- Windows local installer: `scripts/install.ps1`
+
+### Changed
+
+- Added Windows installation examples to README and customer install documentation
+- Included `install-release.ps1` in release assets
+
 ## [0.1.3] - 2026-07-30
 
 ### Changed

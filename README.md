@@ -35,6 +35,7 @@ Derived metrics:
 - OpenCode 1.18+
 - Node.js 20+ for the installer config helper only
 - Linux/macOS with `bash`, `curl`, `tar`, and `gzip`
+- Windows PowerShell 5.1+ or PowerShell 7+, with `tar.exe`
 
 ## Install
 
@@ -57,6 +58,14 @@ The installer will:
 - inject `To-Headless=true` for `gtrace` installs
 
 Restart OpenCode after installation.
+
+Windows PowerShell:
+
+```powershell
+$installer = Join-Path $env:TEMP "opencode-otel-install.ps1"
+Invoke-WebRequest https://github.com/GuanceCloud/opencode-otel-plugin/releases/latest/download/install-release.ps1 -OutFile $installer
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer -Version latest -Endpoint https://llm-openway.guance.com -XToken "<token>" -Tag @("agent_id=<agent-id>","agent_name=<agent-name>")
+```
 
 ## Minimal config shape
 

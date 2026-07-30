@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 function canonicalHeaderName(key) {
   const normalized = String(key).trim().toLowerCase().replace(/_/g, "-");
@@ -60,6 +60,10 @@ function writeOpencodeConfig(options) {
 
   const config = readJsonObject(configFile, { $schema: "https://opencode.ai/config.json" });
   if (!config.$schema) config.$schema = "https://opencode.ai/config.json";
+  const normalizedPluginUrl =
+    typeof pluginUrl === "string" && pluginUrl.startsWith("file://")
+      ? pluginUrl
+      : pathToFileURL(String(pluginUrl)).href;
 
   const plugins = Array.isArray(config.plugin) ? config.plugin : [];
   const filtered = plugins.filter((item) => {
@@ -67,7 +71,7 @@ function writeOpencodeConfig(options) {
     return !(typeof source === "string" && source.includes(pluginName));
   });
   filtered.push([
-    pluginUrl,
+    normalizedPluginUrl,
     { captureContent },
   ]);
   config.plugin = filtered;
