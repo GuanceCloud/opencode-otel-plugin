@@ -2,6 +2,20 @@ import { describe, expect, it } from "vitest"
 import { sanitize, stringifySanitized } from "../src/redaction.js"
 
 describe("content redaction", () => {
+  it.each([undefined, () => undefined, Symbol("missing")])("handles values with no JSON representation: %s", (value) => {
+    expect(stringifySanitized(value, 1024)).toBe("[Unserializable]")
+  })
+
+  it("handles missing MCP text and mixed structured content without modifying the result", () => {
+    const content = [{ type: "text", text: "ok" }, { type: "image", data: "fixture" }]
+    const original = structuredClone(content)
+    expect(stringifySanitized(content[1].text, 1024)).toBe("[Unserializable]")
+    expect(JSON.parse(stringifySanitized(content, 1024))).toEqual(original)
+    expect(content).toEqual(original)
+    expect(stringifySanitized(null, 1024)).toBe("null")
+    expect(stringifySanitized(1n, 1024)).toBe("[Unserializable]")
+  })
+
   it("hides credentials by field name and inline patterns", () => {
     const result = stringifySanitized(
       {

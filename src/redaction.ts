@@ -41,7 +41,8 @@ export function sanitize(value: unknown): unknown {
 export function stringifySanitized(value: unknown, maxLength: number): string {
   let text: string
   try {
-    text = typeof value === "string" ? redactText(value) : JSON.stringify(sanitize(value))
+    // JSON.stringify may return undefined without throwing (e.g. missing MCP output).
+    text = (typeof value === "string" ? redactText(value) : JSON.stringify(sanitize(value))) ?? "[Unserializable]"
   } catch {
     text = "[Unserializable]"
   }

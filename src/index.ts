@@ -30,29 +30,43 @@ export const OpenCodeOtelPlugin: Plugin = async (input, options = {}) => {
   const runtime = createTelemetry(config, log)
   const lifecycle = new TraceLifecycle(runtime, config, input.directory, log)
 
+  // Telemetry failures must not reject a host hook and abort business execution.
+  const safely = async (hook: string, action: () => Promise<void>): Promise<void> => {
+    try {
+      await action()
+    } catch {
+      try {
+        // Do not log the exception: it may contain tool output or credentials.
+        await log("warn", "failed", { stage: "hook", hook })
+      } catch {
+        // Diagnostic logging must also fail open.
+      }
+    }
+  }
+
   const hooks: Hooks = {
     "chat.message": async (hookInput, output) => {
-      await lifecycle.onChatMessage(hookInput, output)
+      await safely("chat.message", () => lifecycle.onChatMessage(hookInput, output))
     },
     "chat.params": async (hookInput, output) => {
-      await lifecycle.onChatParams(hookInput, output)
+      await safely("chat.params", () => lifecycle.onChatParams(hookInput, output))
     },
     "tool.execute.before": async (hookInput, output) => {
-      await lifecycle.onToolBefore(hookInput, output)
+      await safely("tool.execute.before", () => lifecycle.onToolBefore(hookInput, output))
     },
     "tool.execute.after": async (hookInput, output) => {
-      await lifecycle.onToolAfter(hookInput, output)
+      await safely("tool.execute.after", () => lifecycle.onToolAfter(hookInput, output))
     },
     event: async ({ event }) => {
-      await lifecycle.onEvent(
+      await safely("event", () => lifecycle.onEvent(
         event as unknown as {
           type: string
           properties: Record<string, unknown>
         },
-      )
+      ))
     },
     dispose: async () => {
-      await lifecycle.dispose()
+      await safely("dispose", () => lifecycle.dispose())
     },
   }
   return hooks

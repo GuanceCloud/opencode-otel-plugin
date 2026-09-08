@@ -32,6 +32,17 @@ cp "$REPO_ROOT/scripts/install-config.mjs" "$RUNTIME_DIR/scripts/install-config.
 
 tar -czf "$OUTPUT_DIR/opencode-otel-plugin.tar.gz" -C "$RUNTIME_DIR" .
 
+VERSION="$(node -p 'require("./package.json").version')"
+cp "$OUTPUT_DIR/opencode-otel-plugin.tar.gz" "$OUTPUT_DIR/opencode-otel-plugin-v$VERSION.tar.gz"
+(
+  cd "$OUTPUT_DIR"
+  sha256sum opencode-otel-plugin.tar.gz > opencode-otel-plugin.tar.gz.sha256
+  sha256sum "opencode-otel-plugin-v$VERSION.tar.gz" > "opencode-otel-plugin-v$VERSION.tar.gz.sha256"
+  sha256sum install-release.sh install-release.ps1 opencode-otel-plugin.tar.gz \
+    "opencode-otel-plugin-v$VERSION.tar.gz" \
+    opencode-otel-plugin.tar.gz.sha256 "opencode-otel-plugin-v$VERSION.tar.gz.sha256" > SHA256SUMS
+)
+
 printf 'Wrote release assets:\n'
 printf '  %s\n' "$OUTPUT_DIR/install-release.sh"
 printf '  %s\n' "$OUTPUT_DIR/install-release.ps1"
