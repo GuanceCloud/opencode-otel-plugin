@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.6-rc2] - 2026-09-20
+
+### Fixed
+
+- Removed production dependency command symlinks from release archives so Windows `tar.exe` can extract the plugin without Developer Mode or elevated symlink privileges
+- Disabled macOS metadata emission and added release-archive checks that reject symbolic links and AppleDouble metadata
+
 ## [0.1.4] - 2026-07-30
 
 ### Added

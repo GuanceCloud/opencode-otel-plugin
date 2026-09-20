@@ -146,7 +146,7 @@ export function createTelemetry(config: PluginConfig, log?: LifecycleLogger): Te
     "service.name": config.serviceName,
     "telemetry.sdk.language": "nodejs",
     "telemetry.sdk.name": "gtrace",
-    "telemetry.sdk.version": "0.1.6-rc1",
+    "telemetry.sdk.version": "0.1.6-rc2",
     host: hostname(),
     runtime_environment: config.environment,
     agent_id: config.agentId,
