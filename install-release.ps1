@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param(
+  [ValidateSet("opencode", "mimo")][string]$Variant = "opencode",
   [string]$Version = "latest",
   [ValidateSet("gtrace", "otlp", "otel")][string]$Type = "gtrace",
   [string]$Endpoint,
@@ -72,6 +73,7 @@ try {
 
   $params = @{
     Type = $Type
+    Variant = $Variant
   }
   if ($PSBoundParameters.ContainsKey("Endpoint")) { $params.Endpoint = $Endpoint }
   if ($PSBoundParameters.ContainsKey("XToken")) { $params.XToken = $XToken }

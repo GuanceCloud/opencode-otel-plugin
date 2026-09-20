@@ -151,7 +151,7 @@ export function createTelemetry(config: PluginConfig, log?: LifecycleLogger): Te
     runtime_environment: config.environment,
     agent_id: config.agentId,
     agent_name: config.agentName,
-    agent_runtime: "opencode",
+    agent_runtime: config.agentRuntime,
     agent_version: config.agentVersion,
     "gen_ai.agent.name": config.agentName,
     "gen_ai.agent.version": config.agentVersion,

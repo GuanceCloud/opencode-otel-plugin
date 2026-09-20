@@ -28,7 +28,7 @@ interface LlmState {
   span: Span
   context: Context
   startedAt: number
-  firstTokenAt?: number
+  firstChunkAt?: number
   model: string
   provider: string
 }
@@ -112,9 +112,24 @@ interface PartLike {
   tool?: string
   state?: {
     status?: string
+    input?: Record<string, unknown>
     error?: string
     output?: string
   }
+}
+
+interface TransformedMessageLike {
+  info: {
+    sessionID: string
+    role: string
+  }
+  parts: PartLike[]
+}
+
+interface LlmInputState {
+  messages?: string
+  text: string
+  length: number
 }
 
 function attributes(values: Record<string, unknown>): Attributes {
@@ -156,18 +171,111 @@ function textFromParts(parts: PartLike[]): string {
     .join("")
 }
 
+function capturedValue(value: unknown, config: PluginConfig): string | undefined {
+  if (value === undefined) return undefined
+  if (typeof value === "string") {
+    return captureText(value, config.captureContent, config.maxAttributeLength)
+  }
+  return stringifySanitized(value, config.maxAttributeLength)
+}
+
+function messageParts(parts: PartLike[], config: PluginConfig): Array<Record<string, unknown>> {
+  const content: Array<Record<string, unknown>> = []
+  for (const part of parts) {
+    if (part.type === "text" || part.type === "reasoning") {
+      if (typeof part.text !== "string") continue
+      content.push({
+        type: part.type,
+        content: captureText(part.text, config.captureContent, config.maxAttributeLength),
+      })
+      continue
+    }
+    if (part.type !== "tool" || !part.tool) continue
+    content.push({
+      type: "tool_call",
+      name: part.tool,
+      id: part.callID,
+      arguments: capturedValue(part.state?.input, config),
+    })
+  }
+  return content
+}
+
 function messagePayload(role: string, parts: PartLike[], config: PluginConfig): string | undefined {
   if (config.captureContent === "none") return undefined
-  const content = parts
-    .filter((part) => part.type === "text" || part.type === "reasoning")
-    .map((part) => ({
-      type: part.type,
-      content:
-        typeof part.text === "string"
-          ? captureText(part.text, config.captureContent, config.maxAttributeLength)
-          : undefined,
-    }))
+  const content = messageParts(parts, config)
+  if (content.length === 0) return undefined
   return stringifySanitized([{ role, parts: content }], config.maxAttributeLength)
+}
+
+function toolResponseMessages(
+  parts: PartLike[],
+  config: PluginConfig,
+): Array<Record<string, unknown>> {
+  const messages: Array<Record<string, unknown>> = []
+  for (const part of parts) {
+    if (part.type !== "tool" || !part.tool || !part.state) continue
+    if (part.state.status !== "completed" && part.state.status !== "error") continue
+
+    const output = capturedValue(part.state.output, config)
+    const error = capturedValue(part.state.error, config)
+    if (output === undefined && error === undefined) continue
+    messages.push({
+      role: "tool",
+      name: part.tool,
+      parts: [{
+        type: "tool_call_response",
+        id: part.callID,
+        response: error === undefined
+          ? output
+          : {
+              ...(output === undefined ? {} : { output }),
+              error,
+            },
+      }],
+    })
+  }
+  return messages
+}
+
+function llmInputState(
+  transformed: TransformedMessageLike[],
+  config: PluginConfig,
+): LlmInputState | undefined {
+  for (let index = transformed.length - 1; index >= 0; index -= 1) {
+    const message = transformed[index]
+    if (!message) continue
+    if (message.info.role === "assistant") {
+      const completedTools = message.parts.filter(
+        (part) =>
+          part.type === "tool" &&
+          (part.state?.status === "completed" || part.state?.status === "error"),
+      )
+      if (completedTools.length === 0) continue
+      const text = completedTools
+        .map((part) => part.state?.output ?? part.state?.error ?? "")
+        .join("\n")
+      return {
+        messages:
+          config.captureContent === "none"
+            ? undefined
+            : stringifySanitized(
+                toolResponseMessages(completedTools, config),
+                config.maxAttributeLength,
+              ),
+        text,
+        length: text.length,
+      }
+    }
+    if (message.info.role !== "user") continue
+    const text = textFromParts(message.parts)
+    return {
+      messages: messagePayload("user", message.parts, config),
+      text,
+      length: text.length,
+    }
+  }
+  return undefined
 }
 
 function finishReason(reason?: string): string | undefined {
@@ -203,6 +311,7 @@ export class TraceLifecycle {
   private readonly parts = new Map<string, Map<string, PartLike>>()
   private readonly sessions = new Map<string, SessionInfo>()
   private readonly completedMessages = new Set<string>()
+  private readonly llmInputs = new Map<string, LlmInputState>()
 
   constructor(
     private readonly runtime: TelemetryRuntime,
@@ -223,6 +332,7 @@ export class TraceLifecycle {
     const existing = this.turns.get(input.sessionID)
     if (existing) this.finishTurn(existing, "cancelled")
 
+    this.llmInputs.delete(input.sessionID)
     this.storeParts(output.parts)
     const userText = textFromParts(output.parts)
     if (!userText.trim() && output.parts.length === 0) return
@@ -272,6 +382,17 @@ export class TraceLifecycle {
     })
   }
 
+  async onMessagesTransform(
+    _input: Record<string, never>,
+    output: { messages: TransformedMessageLike[] },
+  ): Promise<void> {
+    const latest = output.messages.at(-1)
+    const sessionID = latest?.info.sessionID
+    if (!sessionID) return
+    const captured = llmInputState(output.messages, this.config)
+    if (captured) this.llmInputs.set(sessionID, captured)
+  }
+
   async onChatParams(
     input: {
       sessionID: string
@@ -290,6 +411,11 @@ export class TraceLifecycle {
     // It is not part of the user turn model flow.
     if (input.agent === "title") return
     const turn = this.ensureTurn(input.sessionID)
+    const currentInput = this.llmInputs.get(input.sessionID) ?? {
+      messages: turn.inputMessages,
+      text: turn.inputText,
+      length: turn.inputText.length,
+    }
     if (turn.activeLlm) this.finishLlm(turn, undefined, "unset")
     await this.log("debug", "llm request started", {
       sessionID: input.sessionID,
@@ -314,12 +440,12 @@ export class TraceLifecycle {
           "gen_ai.request.model_name": input.model.name,
           "gen_ai.provider.name":
             input.provider?.info?.id ?? input.provider?.id ?? input.model.providerID,
-          "gen_ai.input.messages": turn.toolCount === 0 ? turn.inputMessages : undefined,
+          "gen_ai.input.messages": currentInput.messages,
           input_preview:
-            turn.toolCount === 0 && this.config.captureContent !== "none"
-              ? preview(turn.inputText, this.config.maxAttributeLength).value
+            this.config.captureContent !== "none"
+              ? preview(currentInput.text, this.config.maxAttributeLength).value
               : undefined,
-          input_length: turn.toolCount === 0 ? turn.inputText.length : undefined,
+          input_length: currentInput.length,
           "gen_ai.request.temperature": output.temperature,
           "gen_ai.request.top_p": output.topP,
           "gen_ai.request.top_k": output.topK,
@@ -515,14 +641,14 @@ export class TraceLifecycle {
       }
       if (
         turn?.activeLlm &&
-        turn.activeLlm.firstTokenAt === undefined &&
+        turn.activeLlm.firstChunkAt === undefined &&
         (part.type === "text" || part.type === "reasoning")
       ) {
-        const firstTokenAt = part.time?.start ?? Date.now()
-        turn.activeLlm.firstTokenAt = firstTokenAt
+        const firstChunkAt = part.time?.start ?? Date.now()
+        turn.activeLlm.firstChunkAt = firstChunkAt
         turn.activeLlm.span.setAttribute(
-          "ttft",
-          Math.max(0, firstTokenAt - turn.activeLlm.startedAt),
+          "gen_ai.response.time_to_first_chunk",
+          Math.max(0, firstChunkAt - turn.activeLlm.startedAt) / 1000,
         )
       }
       return
@@ -695,7 +821,7 @@ export class TraceLifecycle {
     const endedAt = message?.time.completed ?? Date.now()
     const metricStatus = status === "error" ? "error" : "completed"
     const metricAttributes = attributes({
-      agent_runtime: "opencode",
+      agent_runtime: this.config.agentRuntime,
       "gen_ai.conversation.id": turn.sessionID,
       session_id: turn.sessionID,
       "gen_ai.operation.name": "chat",
@@ -780,7 +906,7 @@ export class TraceLifecycle {
       turn.span.setStatus({ code: SpanStatusCode.OK })
     }
     this.runtime.recordWorkflow(Math.max(0, Date.now() - turn.startedAt), {
-      agent_runtime: "opencode",
+      agent_runtime: this.config.agentRuntime,
       "gen_ai.conversation.id": turn.sessionID,
       session_id: turn.sessionID,
       final_status: finalStatus,
@@ -819,7 +945,7 @@ export class TraceLifecycle {
       }
       skill.end()
       this.runtime.recordOperation(Math.max(0, endedAt - skillState.startedAt), {
-        agent_runtime: "opencode",
+        agent_runtime: this.config.agentRuntime,
         "gen_ai.conversation.id": state.sessionID,
         session_id: state.sessionID,
         "gen_ai.operation.name": "skill",
@@ -843,7 +969,7 @@ export class TraceLifecycle {
     }
     state.span.end()
     this.runtime.recordOperation(Math.max(0, endedAt - state.startedAt), {
-      agent_runtime: "opencode",
+      agent_runtime: this.config.agentRuntime,
       "gen_ai.conversation.id": state.sessionID,
       session_id: state.sessionID,
       "gen_ai.operation.name": "execute_tool",

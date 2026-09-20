@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [0.1.6] - 2026-09-20
 
+### Added
+
+- Added native MiMo host support with variant-aware configuration, installers, and fail-open startup behavior
+
+### Fixed
+
+- Removed production dependency command symlinks from release archives so Windows `tar.exe` can extract the plugin without Developer Mode or elevated symlink privileges
+- Disabled macOS metadata emission and added release-archive checks that reject symbolic links and AppleDouble metadata
+
 ### Security
 
 - Replaced credential-like values in customer installation examples with explicit placeholders
@@ -12,6 +21,7 @@ All notable changes to this project will be documented in this file.
 
 - Updated pinned-version installation examples for the current release
 - Removed the type-only OpenCode SDK and development caches from the bundled runtime, reducing archive size and avoiding unrelated Node.js engine warnings during packaging
+- Replaced the custom `ttft` millisecond attribute with the OpenTelemetry `gen_ai.response.time_to_first_chunk` attribute expressed in seconds
 
 ## [0.1.5] - 2026-09-08
 
