@@ -48,6 +48,11 @@ export const OpenCodeOtelPlugin: Plugin = async (input, options = {}) => {
     "chat.message": async (hookInput, output) => {
       await safely("chat.message", () => lifecycle.onChatMessage(hookInput, output))
     },
+    "experimental.chat.messages.transform": async (hookInput, output) => {
+      await safely("experimental.chat.messages.transform", () =>
+        lifecycle.onMessagesTransform(hookInput, output),
+      )
+    },
     "chat.params": async (hookInput, output) => {
       await safely("chat.params", () => lifecycle.onChatParams(hookInput, output))
     },

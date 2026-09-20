@@ -1,6 +1,6 @@
 {
   "name": "opencode-otel-plugin",
-  "version": "0.1.5",
+  "version": "0.1.6-rc1",
   "description": "OpenCode observability plugin using gtrace AI semantic conventions and OTLP/HTTP Protobuf",
   "type": "module",
   "main": "./dist/index.js",
@@ -9,11 +9,16 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./mimo": {
+      "types": "./dist/mimo.d.ts",
+      "import": "./dist/mimo.js"
     }
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "scripts/install-config.mjs"
   ],
   "scripts": {
     "prepare": "npm run build",
@@ -32,7 +37,8 @@
     "@opentelemetry/exporter-trace-otlp-proto": "0.221.0",
     "@opentelemetry/resources": "2.10.0",
     "@opentelemetry/sdk-metrics": "2.10.0",
-    "@opentelemetry/sdk-trace-base": "2.10.0"
+    "@opentelemetry/sdk-trace-base": "2.10.0",
+    "jsonc-parser": "^3.3.1"
   },
   "devDependencies": {
     "@types/node": "24.10.1",
