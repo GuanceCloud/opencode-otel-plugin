@@ -30,10 +30,35 @@ cp "$REPO_ROOT/scripts/install-config.mjs" "$RUNTIME_DIR/scripts/install-config.
 
 (cd "$RUNTIME_DIR" && npm prune --omit=dev --ignore-scripts >/dev/null)
 
-tar -czf "$OUTPUT_DIR/opencode-otel-plugin.tar.gz" -C "$RUNTIME_DIR" .
+# Production package command shims are not used by the runtime. npm creates
+# them as Unix symlinks, which Windows tar.exe cannot reliably extract without
+# symlink privileges. Keep the release archive regular-file-only.
+rm -rf "$RUNTIME_DIR/node_modules/.bin"
+
+if find "$RUNTIME_DIR" -type l -print -quit | grep -q .; then
+  echo "Release staging directory contains symbolic links:" >&2
+  find "$RUNTIME_DIR" -type l -print >&2
+  exit 1
+fi
+
+ARCHIVE_PATH="$OUTPUT_DIR/opencode-otel-plugin.tar.gz"
+COPYFILE_DISABLE=1 tar --format=ustar -czf "$ARCHIVE_PATH" -C "$RUNTIME_DIR" .
+
+if tar -tvzf "$ARCHIVE_PATH" | awk 'substr($1, 1, 1) == "l" { found=1 } END { exit(found ? 0 : 1) }'; then
+  echo "Release archive contains symbolic links" >&2
+  exit 1
+fi
+if tar -tzf "$ARCHIVE_PATH" | grep -Eq '(^|/)(__MACOSX/|\._)'; then
+  echo "Release archive contains macOS metadata" >&2
+  exit 1
+fi
+if gzip -dc "$ARCHIVE_PATH" | grep -aEq 'LIBARCHIVE\.xattr|SCHILY\.xattr'; then
+  echo "Release archive contains extended attributes" >&2
+  exit 1
+fi
 
 VERSION="$(node -p 'require("./package.json").version')"
-cp "$OUTPUT_DIR/opencode-otel-plugin.tar.gz" "$OUTPUT_DIR/opencode-otel-plugin-v$VERSION.tar.gz"
+cp "$ARCHIVE_PATH" "$OUTPUT_DIR/opencode-otel-plugin-v$VERSION.tar.gz"
 (
   cd "$OUTPUT_DIR"
   sha256sum opencode-otel-plugin.tar.gz > opencode-otel-plugin.tar.gz.sha256

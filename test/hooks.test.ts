@@ -48,7 +48,9 @@ describe("host hook isolation", () => {
   })
 
   it.each([
-    ["chat.message", "onChatMessage"], ["chat.params", "onChatParams"],
+    ["chat.message", "onChatMessage"],
+    ["experimental.chat.messages.transform", "onMessagesTransform"],
+    ["chat.params", "onChatParams"],
     ["tool.execute.before", "onToolBefore"], ["tool.execute.after", "onToolAfter"],
     ["event", "onEvent"], ["dispose", "dispose"],
   ] as const)("contains sync and async failures from %s, including logger failures", async (hook, method) => {

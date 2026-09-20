@@ -1,10 +1,11 @@
 import { readFileSync } from "node:fs"
 import { homedir } from "node:os"
-import { join } from "node:path"
+import { isAbsolute, join } from "node:path"
 
 export type ContentCaptureMode = "none" | "preview" | "full"
 
 export interface PluginConfig {
+  agentRuntime: "opencode" | "mimo"
   enabled: boolean
   endpoint: string
   tracePath: string
@@ -32,6 +33,8 @@ export interface PluginConfig {
 export interface ResolveConfigContext {
   cwd?: string
   home?: string
+  configDir?: string
+  variant?: "opencode" | "mimo"
 }
 
 const DEFAULT_ENDPOINT = "http://127.0.0.1:9529"
@@ -164,8 +167,8 @@ function resolveGtraceConfig(context: ResolveConfigContext): {
 } {
   const home = context.home ?? homedir()
   const cwd = context.cwd ?? process.cwd()
-  const globalFile = join(home, ".config", "opencode", "gtrace.json")
-  const localFile = join(cwd, ".opencode", "gtrace.json")
+  const globalFile = join(context.configDir ?? join(home, ".config", "opencode"), "gtrace.json")
+  const localFile = join(cwd, context.variant === "mimo" ? ".mimocode" : ".opencode", "gtrace.json")
   const globalConfig = readJsonIfExists(globalFile)
   const localConfig = readJsonIfExists(localFile)
   const loadedFiles = [...new Set(
@@ -235,9 +238,25 @@ export function resolveConfig(
   env: NodeJS.ProcessEnv = process.env,
   context: ResolveConfigContext = {},
 ): PluginConfig {
-  const gtrace = resolveGtraceConfig(context)
-  const gtraceValues = gtrace.values
+  const variant = options.variant === "mimo" ? "mimo" : "opencode"
   const home = context.home ?? homedir()
+  let configDir = join(home, ".config", "opencode")
+  if (variant === "mimo") {
+    if (env.MIMOCODE_HOME && !isAbsolute(env.MIMOCODE_HOME)) throw new Error("MIMOCODE_HOME must be an absolute path")
+    const explicitDir = stringValue(options.configDir, env.MIMOCODE_CONFIG_DIR || "")
+    if (explicitDir && !isAbsolute(explicitDir)) throw new Error("MiMo config directory must be an absolute path")
+    const xdg = env.XDG_CONFIG_HOME && isAbsolute(env.XDG_CONFIG_HOME) ? env.XDG_CONFIG_HOME : join(home, ".config")
+    configDir = explicitDir || (env.MIMOCODE_HOME ? join(env.MIMOCODE_HOME, "config") : join(xdg, "mimocode"))
+  }
+  // MiMo must not inherit another host's telemetry credentials or identity.
+  if (variant === "mimo") {
+    env = Object.fromEntries(Object.entries(env).filter(([key]) => !key.startsWith("OPENCODE_OTEL_")))
+    for (const [key, value] of Object.entries(env)) {
+      if (key.startsWith("MIMOCODE_OTEL_")) env[key.replace("MIMOCODE_OTEL_", "OPENCODE_OTEL_")] = value
+    }
+  }
+  const gtrace = resolveGtraceConfig({ ...context, variant, configDir })
+  const gtraceValues = gtrace.values
   const endpoint = endpointValue(
     options.endpoint ?? env.OPENCODE_OTEL_ENDPOINT ?? gtraceValues.endpoint ?? gtraceValues.base_url,
     DEFAULT_ENDPOINT,
@@ -291,6 +310,7 @@ export function resolveConfig(
   }
 
   return {
+    agentRuntime: variant,
     enabled: booleanValue(
       options.enabled ?? env.OPENCODE_OTEL_ENABLED ?? gtraceValues.enabled,
       true,
@@ -316,13 +336,13 @@ export function resolveConfig(
       options.metricsEnabled ?? env.OPENCODE_OTEL_METRICS_ENABLED,
       true,
     ),
-    serviceName: stringValue(options.serviceName ?? env.OPENCODE_OTEL_SERVICE_NAME, "gtrace-opencode"),
+    serviceName: stringValue(options.serviceName ?? env.OPENCODE_OTEL_SERVICE_NAME, `gtrace-${variant}`),
     environment: stringValue(
       options.environment ?? env.OPENCODE_OTEL_ENV ?? gtraceValues.environment,
       "dev",
     ),
-    agentId: stringValue(options.agentId ?? env.OPENCODE_OTEL_AGENT_ID, "opencode"),
-    agentName: stringValue(options.agentName ?? env.OPENCODE_OTEL_AGENT_NAME, "OpenCode"),
+    agentId: stringValue(options.agentId ?? env.OPENCODE_OTEL_AGENT_ID, variant),
+    agentName: stringValue(options.agentName ?? env.OPENCODE_OTEL_AGENT_NAME, variant === "mimo" ? "MiMo Code" : "OpenCode"),
     agentVersion: stringValue(options.agentVersion ?? env.OPENCODE_OTEL_AGENT_VERSION, "unknown"),
     captureContent: captureMode(options.captureContent ?? env.OPENCODE_OTEL_CAPTURE_CONTENT),
     maxAttributeLength: integerValue(
@@ -342,7 +362,7 @@ export function resolveConfig(
     debug: booleanValue(options.debug ?? env.OPENCODE_OTEL_DEBUG ?? gtraceValues.debug, false),
     hookLogFile: stringValue(
       options.hookLogFile ?? env.OPENCODE_OTEL_HOOK_LOG_FILE ?? gtraceValues.hook_log_file,
-      join(home, ".config", "opencode", "gtrace-hook.log"),
+      join(configDir, "gtrace-hook.log"),
     ),
     configSourceFiles: gtrace.loadedFiles,
     configSourceWarnings: gtrace.warnings,

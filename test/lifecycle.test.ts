@@ -106,6 +106,25 @@ describe("trace lifecycle", () => {
       },
       { temperature: 0.2, topP: 1, topK: 0, maxOutputTokens: 64 },
     )
+    await lifecycle.onMessagesTransform({}, {
+      messages: [{
+        info: {
+          id: "user-1",
+          sessionID: "session-1",
+          role: "user",
+          time: { created: now },
+          agent: "build",
+          model: { providerID: "openai", modelID: "gpt-test" },
+        },
+        parts: [{
+          id: "user-part-1",
+          sessionID: "session-1",
+          messageID: "user-1",
+          type: "text",
+          text: "Please run the test",
+        }],
+      }],
+    })
     await lifecycle.onChatParams(
       {
         sessionID: "session-1",
@@ -115,6 +134,23 @@ describe("trace lifecycle", () => {
       },
       { temperature: 0.2, topP: 1, topK: 0, maxOutputTokens: 4096 },
     )
+    await lifecycle.onEvent({
+      type: "message.part.updated",
+      properties: {
+        part: {
+          id: "assistant-part-1",
+          sessionID: "session-1",
+          messageID: "assistant-1",
+          type: "tool",
+          callID: "call-1",
+          tool: "read",
+          state: {
+            status: "pending",
+            input: { filePath: skillPath },
+          },
+        },
+      },
+    })
     await lifecycle.onEvent({
       type: "message.updated",
       properties: {
@@ -139,6 +175,43 @@ describe("trace lifecycle", () => {
       { tool: "read", sessionID: "session-1", callID: "call-1", args: { filePath: skillPath } },
       { title: "Read", output: "skill loaded", metadata: {} },
     )
+    await lifecycle.onMessagesTransform({}, {
+      messages: [{
+        info: {
+          id: "user-1",
+          sessionID: "session-1",
+          role: "user",
+          time: { created: now },
+          agent: "build",
+          model: { providerID: "openai", modelID: "gpt-test" },
+        },
+        parts: [],
+      }, {
+        info: {
+          id: "assistant-1",
+          sessionID: "session-1",
+          role: "assistant",
+          time: { created: now + 1, completed: now + 2 },
+          modelID: "gpt-test",
+          providerID: "openai",
+          cost: 0.01,
+          tokens: { input: 10, output: 3, reasoning: 1, cache: { read: 2, write: 0 } },
+        },
+        parts: [{
+          id: "assistant-part-1",
+          sessionID: "session-1",
+          messageID: "assistant-1",
+          type: "tool",
+          callID: "call-1",
+          tool: "read",
+          state: {
+            status: "completed",
+            input: { filePath: skillPath },
+            output: "skill loaded",
+          },
+        }],
+      }],
+    })
     await lifecycle.onChatParams(
       {
         sessionID: "session-1",
@@ -199,6 +272,30 @@ describe("trace lifecycle", () => {
     expect(root?.attributes["gen_ai.usage.output_tokens"]).toBe(8)
     expect(root?.attributes.tool_count).toBe(1)
     expect(root?.attributes.final_status).toBe("completed")
+    const llmSpans = spans.filter((span) => span.name === "llm")
+    expect(JSON.parse(String(llmSpans[0]?.attributes["gen_ai.input.messages"]))).toEqual([
+      { role: "user", parts: [{ type: "text", content: "Please run the test" }] },
+    ])
+    expect(JSON.parse(String(llmSpans[0]?.attributes["gen_ai.output.messages"]))).toEqual([
+      {
+        role: "assistant",
+        parts: [{
+          type: "tool_call",
+          name: "read",
+          id: "call-1",
+          arguments: JSON.stringify({ filePath: skillPath }),
+        }],
+      },
+    ])
+    expect(JSON.parse(String(llmSpans[1]?.attributes["gen_ai.input.messages"]))).toEqual([
+      {
+        role: "tool",
+        name: "read",
+        parts: [{ type: "tool_call_response", id: "call-1", response: "skill loaded" }],
+      },
+    ])
+    expect(llmSpans[1]?.attributes.input_preview).toBe("skill loaded")
+    expect(llmSpans[1]?.attributes.input_length).toBe(12)
     expect(recorded).toEqual({ workflows: 1, operations: 4, tokens: 4 })
 
     await lifecycle.dispose()

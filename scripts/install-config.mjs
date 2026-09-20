@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { parse, modify, applyEdits } from "jsonc-parser";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -47,7 +48,7 @@ function readJsonObject(file, fallback = {}) {
 
 function writeJson(file, value) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
 }
 
 function writeOpencodeConfig(options) {
@@ -82,6 +83,45 @@ function writeOpencodeConfig(options) {
   config.experimental.openTelemetry = false;
 
   writeJson(configFile, config);
+}
+
+// Edit only the plugin property so comments, credentials and provider configuration survive.
+function updateMimoConfig(configFile, pluginDir, remove = false) {
+  if (remove && !fs.existsSync(configFile)) return;
+  const raw = fs.existsSync(configFile) ? fs.readFileSync(configFile, "utf8") : "{}\n";
+  const errors = [];
+  const config = parse(raw, errors, { allowTrailingComma: true });
+  if (errors.length || !config || typeof config !== "object" || Array.isArray(config)) {
+    throw new Error(`Expected JSONC object in ${configFile}`);
+  }
+  const plugins = Array.isArray(config.plugin) ? config.plugin : [];
+  const owned = (item) => {
+    const source = Array.isArray(item) ? item[0] : item;
+    if (typeof source !== "string") return false;
+    if (/^opencode-otel-plugin(?:@[^/]+)?(?:\/mimo)?$/.test(source)) return true;
+    if (!source.startsWith("file:")) return false;
+    try {
+      const file = fileURLToPath(source);
+      const canonical = (value) => fs.existsSync(value) ? fs.realpathSync(value) : path.resolve(value);
+      return canonical(file) === canonical(pluginDir) || canonical(file) === canonical(path.join(pluginDir, "dist", "mimo.js"));
+    } catch { return false; }
+  };
+  const filtered = plugins.filter((item) => !owned(item));
+  if (remove && filtered.length === plugins.length) return;
+  if (!remove) filtered.push(pathToFileURL(path.join(pluginDir, "dist", "mimo.js")).href);
+  const result = applyEdits(raw, modify(raw, ["plugin"], filtered, { formattingOptions: { insertSpaces: true, tabSize: 2 } }));
+  fs.mkdirSync(path.dirname(configFile), { recursive: true });
+  fs.writeFileSync(configFile, result, "utf8");
+}
+
+function installMimoRuntime() {
+  const pluginDir = process.env.OPENCODE_PLUGIN_DIR_RUNTIME;
+  const file = path.join(pluginDir, "mimo-options.json");
+  if (process.env.OPENCODE_NO_CONFIG_RUNTIME === "1" && fs.existsSync(file)) return;
+  writeJson(file, {
+    configDir: path.dirname(process.env.GTRACE_CONFIG_FILE_RUNTIME),
+    captureContent: process.env.OPENCODE_CAPTURE_CONTENT_RUNTIME || "preview",
+  });
 }
 
 function writeGtraceConfig(options) {
@@ -170,7 +210,17 @@ function isMainModule() {
 }
 
 if (isMainModule()) {
-  if (action === "write-opencode-config") writeOpencodeConfig(optionsFromEnvironment(action));
+  if (action === "install-mimo-runtime") installMimoRuntime();
+  else if (action === "remove-mimo-config") {
+    const configDir = process.argv[3];
+    if (!configDir || !path.isAbsolute(configDir)) throw new Error("Absolute MiMo config directory required");
+    const pluginDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+    for (const file of ["mimocode.json", "mimocode.jsonc"]) updateMimoConfig(path.join(configDir, file), pluginDir, true);
+  }
+  else if (action === "write-opencode-config" && process.env.OPENCODE_VARIANT_RUNTIME === "mimo") {
+    updateMimoConfig(process.env.OPENCODE_CONFIG_FILE_RUNTIME, process.env.OPENCODE_PLUGIN_DIR_RUNTIME);
+  }
+  else if (action === "write-opencode-config") writeOpencodeConfig(optionsFromEnvironment(action));
   else if (action === "write-gtrace-config") writeGtraceConfig(optionsFromEnvironment(action));
   else throw new Error(`Unsupported installer config action: ${action || "<empty>"}`);
 }

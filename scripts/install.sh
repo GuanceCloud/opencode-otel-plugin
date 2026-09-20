@@ -2,11 +2,11 @@
 set -euo pipefail
 
 REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-OPENCODE_HOME="${OPENCODE_HOME:-$HOME/.config/opencode}"
-OPENCODE_CONFIG_FILE="${OPENCODE_CONFIG_FILE:-$OPENCODE_HOME/opencode.json}"
-CONFIG_FILE="${GTRACE_CONFIG_FILE:-$OPENCODE_HOME/gtrace.json}"
+VARIANT=opencode
+OPENCODE_CONFIG_FILE="${OPENCODE_CONFIG_FILE:-}"
+CONFIG_FILE="${GTRACE_CONFIG_FILE:-}"
 PLUGIN_NAME="${PLUGIN_NAME:-opencode-otel-plugin}"
-PLUGIN_DIR="${PLUGIN_DIR:-$OPENCODE_HOME/plugins/$PLUGIN_NAME}"
+PLUGIN_DIR="${PLUGIN_DIR:-}"
 INSTALL_TYPE="${OPENCODE_OTEL_INSTALL_TYPE:-gtrace}"
 ENDPOINT="${GTRACE_ENDPOINT:-${OPENCODE_OTEL_ENDPOINT:-}}"
 TRACE_PATH="${GTRACE_TRACE_PATH:-${OPENCODE_OTEL_TRACE_PATH:-}}"
@@ -70,6 +70,7 @@ Usage:
   scripts/install.sh [--type gtrace|otlp] [--endpoint URL] [--x-token TOKEN] [--trace-path PATH] [--metrics-path PATH] [--header KEY=VALUE] [--tag KEY=VALUE] [--capture-content VALUE] [--enable-script|--disable-script] [--no-config]
 
 Options:
+  --variant           Host variant: opencode (default), mimo.
   --type              Config preset. Default: gtrace. Values: gtrace, otlp.
   --endpoint          Receiver base URL, for example https://llm-openway.guance.com.
   --x-token           Dataway/GTrace X-Token. The value is written to gtrace.json and never printed.
@@ -89,6 +90,14 @@ HELP
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
+    --variant)
+      shift
+      [[ "$#" -gt 0 ]] || { echo "--variant requires a value" >&2; exit 2; }
+      VARIANT="$1"
+      ;;
+    --variant=*)
+      VARIANT="${1#*=}"
+      ;;
     --no-config)
       WRITE_CONFIG=0
       ;;
@@ -202,6 +211,26 @@ while [[ "$#" -gt 0 ]]; do
   shift
 done
 
+case "$VARIANT" in
+  opencode)
+    OPENCODE_HOME="${OPENCODE_HOME:-$HOME/.config/opencode}"
+    OPENCODE_CONFIG_FILE="${OPENCODE_CONFIG_FILE:-$OPENCODE_HOME/opencode.json}"
+    ;;
+  mimo)
+    [[ -z "${MIMOCODE_HOME:-}" || "$MIMOCODE_HOME" == /* ]] || { echo "MIMOCODE_HOME must be an absolute path" >&2; exit 2; }
+    [[ -z "${MIMOCODE_CONFIG_DIR:-}" || "$MIMOCODE_CONFIG_DIR" == /* ]] || { echo "MIMOCODE_CONFIG_DIR must be an absolute path" >&2; exit 2; }
+    MIMO_XDG_CONFIG="$HOME/.config"
+    [[ "${XDG_CONFIG_HOME:-}" != /* ]] || MIMO_XDG_CONFIG="$XDG_CONFIG_HOME"
+    OPENCODE_HOME="${MIMOCODE_CONFIG_DIR:-${MIMOCODE_HOME:+$MIMOCODE_HOME/config}}"
+    OPENCODE_HOME="${OPENCODE_HOME:-$MIMO_XDG_CONFIG/mimocode}"
+    OPENCODE_CONFIG_FILE="$OPENCODE_HOME/mimocode.json"
+    [[ ! -f "$OPENCODE_HOME/mimocode.jsonc" ]] || OPENCODE_CONFIG_FILE="$OPENCODE_HOME/mimocode.jsonc"
+    ;;
+  *) echo "Unsupported --variant: $VARIANT" >&2; exit 2 ;;
+esac
+CONFIG_FILE="${CONFIG_FILE:-$OPENCODE_HOME/gtrace.json}"
+PLUGIN_DIR="${PLUGIN_DIR:-$OPENCODE_HOME/plugins/$PLUGIN_NAME}"
+
 if [[ ! -f "$REPO_ROOT/dist/index.js" ]]; then
   echo "Cannot find dist/index.js under $REPO_ROOT. Build the release package first." >&2
   exit 1
@@ -252,6 +281,8 @@ sync_plugin_runtime() {
   rm -rf "$PLUGIN_DIR/node_modules"
   cp -R "$REPO_ROOT/dist" "$PLUGIN_DIR/dist"
   cp -R "$REPO_ROOT/node_modules" "$PLUGIN_DIR/node_modules"
+  mkdir -p "$PLUGIN_DIR/scripts"
+  cp "$REPO_ROOT/scripts/install-config.mjs" "$PLUGIN_DIR/scripts/install-config.mjs"
   cp "$REPO_ROOT/package.json" "$PLUGIN_DIR/package.json"
   if [[ -f "$REPO_ROOT/package-lock.json" ]]; then
     cp "$REPO_ROOT/package-lock.json" "$PLUGIN_DIR/package-lock.json"
@@ -265,6 +296,8 @@ sync_plugin_runtime() {
 }
 
 write_opencode_config() {
+  OPENCODE_VARIANT_RUNTIME="$VARIANT" \
+  OPENCODE_PLUGIN_DIR_RUNTIME="$PLUGIN_DIR" \
   OPENCODE_CONFIG_FILE_RUNTIME="$OPENCODE_CONFIG_FILE" \
   OPENCODE_PLUGIN_URL_RUNTIME="file://$PLUGIN_DIR" \
   OPENCODE_PLUGIN_NAME_RUNTIME="$PLUGIN_NAME" \
@@ -296,10 +329,17 @@ write_gtrace_config() {
 
 sync_plugin_runtime
 log "installed plugin files: $PLUGIN_DIR"
+if [[ "$VARIANT" == "mimo" ]]; then
+  OPENCODE_PLUGIN_DIR_RUNTIME="$PLUGIN_DIR" \
+  GTRACE_CONFIG_FILE_RUNTIME="$CONFIG_FILE" \
+  OPENCODE_CAPTURE_CONTENT_RUNTIME="$CAPTURE_CONTENT" \
+  OPENCODE_NO_CONFIG_RUNTIME="$((1-WRITE_CONFIG))" \
+  "$NODE_BIN" "$REPO_ROOT/scripts/install-config.mjs" install-mimo-runtime
+fi
 
 if [[ "$WRITE_CONFIG" -eq 1 ]]; then
   write_opencode_config
-  log "updated OpenCode config: $OPENCODE_CONFIG_FILE"
+  log "updated $VARIANT config: $OPENCODE_CONFIG_FILE"
 
   if [[ -n "$ENDPOINT" || -f "$CONFIG_FILE" || -n "$SCRIPT_ENABLED" ]]; then
     write_gtrace_config
@@ -325,15 +365,15 @@ fi
 
 cat <<EOF
 
-OpenCode plugin install complete.
+$VARIANT plugin install complete.
 
 Installed plugin directory:
   $PLUGIN_DIR
 
 Next steps:
-  1. Restart OpenCode
+  1. Restart $VARIANT
   2. Run one conversation
-  3. Check ~/.config/opencode/gtrace-hook.log for:
+  3. Check $OPENCODE_HOME/gtrace-hook.log for:
      - uploaded spans
      - uploaded metrics
 EOF

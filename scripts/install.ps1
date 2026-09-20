@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param(
+  [ValidateSet("opencode", "mimo")][string]$Variant = "opencode",
   [ValidateSet("gtrace", "otlp", "otel")][string]$Type = "gtrace",
   [string]$Endpoint,
   [string]$XToken,
@@ -54,8 +55,23 @@ function Test-NodeVersion([string]$NodeBin) {
   }
 }
 
+function Test-AbsolutePath([string]$Value) {
+  if (-not $Value) { return $false }
+  if ([IO.Path]::DirectorySeparatorChar -eq '\') {
+    return $Value -match '^(?:[A-Za-z]:[\\/]|[\\/]{2}[^\\/]+[\\/][^\\/]+)'
+  }
+  return $Value.StartsWith('/')
+}
+
 $RepoRoot = if ($env:REPO_ROOT) { $env:REPO_ROOT } else { Split-Path -Parent $PSScriptRoot }
 $OpenCodeHome = if ($env:OPENCODE_HOME) { $env:OPENCODE_HOME } else { Join-Path $env:USERPROFILE ".config\opencode" }
+if ($Variant -eq "mimo") {
+  if ($env:MIMOCODE_HOME -and -not (Test-AbsolutePath $env:MIMOCODE_HOME)) { throw "MIMOCODE_HOME must be an absolute path" }
+  if ($env:MIMOCODE_CONFIG_DIR -and -not (Test-AbsolutePath $env:MIMOCODE_CONFIG_DIR)) { throw "MIMOCODE_CONFIG_DIR must be an absolute path" }
+  $OpenCodeHome = if ($env:MIMOCODE_CONFIG_DIR) { $env:MIMOCODE_CONFIG_DIR } elseif ($env:MIMOCODE_HOME) { Join-Path $env:MIMOCODE_HOME "config" } elseif (Test-AbsolutePath $env:XDG_CONFIG_HOME) { Join-Path $env:XDG_CONFIG_HOME "mimocode" } else { Join-Path $env:USERPROFILE ".config\mimocode" }
+  $OpenCodeConfig = Join-Path $OpenCodeHome "mimocode.json"
+  if (Test-Path -LiteralPath (Join-Path $OpenCodeHome "mimocode.jsonc")) { $OpenCodeConfig = Join-Path $OpenCodeHome "mimocode.jsonc" }
+}
 if (-not $OpenCodeConfig) {
   $OpenCodeConfig = if ($env:OPENCODE_CONFIG_FILE) { $env:OPENCODE_CONFIG_FILE } else { Join-Path $OpenCodeHome "opencode.json" }
 }
@@ -109,16 +125,28 @@ if (Test-Path -LiteralPath (Join-Path $RepoRoot "README.md") -PathType Leaf) {
 if (Test-Path -LiteralPath (Join-Path $RepoRoot "LICENSE") -PathType Leaf) {
   Copy-Item -LiteralPath (Join-Path $RepoRoot "LICENSE") -Destination (Join-Path $PluginDir "LICENSE")
 }
+[IO.Directory]::CreateDirectory((Join-Path $PluginDir "scripts")) | Out-Null
+Copy-Item -LiteralPath $ConfigHelper -Destination (Join-Path $PluginDir "scripts\install-config.mjs")
 Write-InstallLog "installed plugin files: $PluginDir"
+if ($Variant -eq "mimo") {
+  $env:OPENCODE_PLUGIN_DIR_RUNTIME = $PluginDir
+  $env:GTRACE_CONFIG_FILE_RUNTIME = $ConfigFile
+  $env:OPENCODE_CAPTURE_CONTENT_RUNTIME = $CaptureContent
+  $env:OPENCODE_NO_CONFIG_RUNTIME = if ($NoConfig) { "1" } else { "0" }
+  & $NodeBin $ConfigHelper install-mimo-runtime
+  if ($LASTEXITCODE -ne 0) { throw "Failed to configure MiMo runtime" }
+}
 
 if (-not $NoConfig) {
+  $env:OPENCODE_VARIANT_RUNTIME = $Variant
+  $env:OPENCODE_PLUGIN_DIR_RUNTIME = $PluginDir
   $env:OPENCODE_CONFIG_FILE_RUNTIME = $OpenCodeConfig
   $env:OPENCODE_PLUGIN_URL_RUNTIME = $PluginDir
   $env:OPENCODE_PLUGIN_NAME_RUNTIME = "opencode-otel-plugin"
   $env:OPENCODE_CAPTURE_CONTENT_RUNTIME = $CaptureContent
   & $NodeBin $ConfigHelper write-opencode-config
   if ($LASTEXITCODE -ne 0) { throw "Failed to update $OpenCodeConfig" }
-  Write-InstallLog "updated OpenCode config: $OpenCodeConfig"
+  Write-InstallLog "updated $Variant config: $OpenCodeConfig"
 
   $ScriptEnabled = if ($EnableScript) { "true" } elseif ($DisableScript) { "false" } else { "" }
   if ($Endpoint -or (Test-Path -LiteralPath $ConfigFile) -or $ScriptEnabled) {
@@ -146,14 +174,14 @@ if (-not $NoConfig) {
 }
 
 Write-Host ""
-Write-Host "OpenCode plugin install complete."
+Write-Host "$Variant plugin install complete."
 Write-Host ""
 Write-Host "Installed plugin directory:"
 Write-Host "  $PluginDir"
 Write-Host ""
 Write-Host "Next steps:"
-Write-Host "  1. Restart OpenCode"
+Write-Host "  1. Restart $Variant"
 Write-Host "  2. Run one conversation"
-Write-Host "  3. Check ~/.config/opencode/gtrace-hook.log for:"
+Write-Host "  3. Check $OpenCodeHome/gtrace-hook.log for:"
 Write-Host "     - uploaded spans"
 Write-Host "     - uploaded metrics"
