@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.6] - 2026-09-20
+
+### Security
+
+- Replaced credential-like values in customer installation examples with explicit placeholders
+
+### Changed
+
+- Updated pinned-version installation examples for the current release
+- Removed the type-only OpenCode SDK and development caches from the bundled runtime, reducing archive size and avoiding unrelated Node.js engine warnings during packaging
+
+## [0.1.5] - 2026-09-08
+
+### Fixed
+
+- Prevented missing MCP values from causing telemetry serialization failures
+- Isolated telemetry hook and diagnostic logger failures from OpenCode business execution
+
+### Added
+
+- Added regression coverage for missing MCP fields and hook failure isolation
+- Added versioned archives and SHA-256 checksums to release assets
+
 ## [0.1.4] - 2026-07-30
 
 ### Added

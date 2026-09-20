@@ -1,7 +1,8 @@
 # OpenCode OTel Plugin Customer Installation Guide
 
-Date: 2026-07-30  
-Applicable release: `v0.1.3` and later
+Date: 2026-09-20
+
+Applicable release: `v0.1.6` and later
 
 ## 1. Requirements
 
@@ -29,15 +30,15 @@ curl -fsSL https://github.com/GuanceCloud/opencode-otel-plugin/releases/latest/d
       --tag agent_name=<agent-name>
 ```
 
-Example:
+Example with placeholders:
 
 ```bash
 curl -fsSL https://github.com/GuanceCloud/opencode-otel-plugin/releases/latest/download/install-release.sh \
   | bash -s -- latest \
       --endpoint https://llm-openway.guance.com \
-      --x-token agent_ca7a50af033e43fc9f53c7664d31d04a \
-      --tag agent_id=agent_9cf885f06aaf11f1831e47f206e21a2d \
-      --tag agent_name=Nioma AI
+      --x-token <your-token> \
+      --tag agent_id=<agent-id> \
+      --tag agent_name=<agent-name>
 ```
 
 Windows PowerShell:
@@ -126,7 +127,7 @@ If you want to pin a fixed version, replace `latest` with a specific release tag
 
 ```bash
 curl -fsSL https://github.com/GuanceCloud/opencode-otel-plugin/releases/latest/download/install-release.sh \
-  | bash -s -- v0.1.3 \
+  | bash -s -- v0.1.6 \
       --endpoint https://llm-openway.guance.com \
       --x-token <your-token>
 ```

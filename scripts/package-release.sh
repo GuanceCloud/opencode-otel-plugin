@@ -29,6 +29,8 @@ cp "$REPO_ROOT/scripts/install.ps1" "$RUNTIME_DIR/scripts/install.ps1"
 cp "$REPO_ROOT/scripts/install-config.mjs" "$RUNTIME_DIR/scripts/install-config.mjs"
 
 (cd "$RUNTIME_DIR" && npm prune --omit=dev --ignore-scripts >/dev/null)
+find "$RUNTIME_DIR/node_modules" -type d -name '.vite' -prune -exec rm -rf -- {} +
+find "$RUNTIME_DIR/node_modules" -type d -empty -delete
 
 tar -czf "$OUTPUT_DIR/opencode-otel-plugin.tar.gz" -C "$RUNTIME_DIR" .
 
