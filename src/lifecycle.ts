@@ -28,7 +28,7 @@ interface LlmState {
   span: Span
   context: Context
   startedAt: number
-  firstTokenAt?: number
+  firstChunkAt?: number
   model: string
   provider: string
 }
@@ -641,14 +641,14 @@ export class TraceLifecycle {
       }
       if (
         turn?.activeLlm &&
-        turn.activeLlm.firstTokenAt === undefined &&
+        turn.activeLlm.firstChunkAt === undefined &&
         (part.type === "text" || part.type === "reasoning")
       ) {
-        const firstTokenAt = part.time?.start ?? Date.now()
-        turn.activeLlm.firstTokenAt = firstTokenAt
+        const firstChunkAt = part.time?.start ?? Date.now()
+        turn.activeLlm.firstChunkAt = firstChunkAt
         turn.activeLlm.span.setAttribute(
-          "ttft",
-          Math.max(0, firstTokenAt - turn.activeLlm.startedAt),
+          "gen_ai.response.time_to_first_chunk",
+          Math.max(0, firstChunkAt - turn.activeLlm.startedAt) / 1000,
         )
       }
       return

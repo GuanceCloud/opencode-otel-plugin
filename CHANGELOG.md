@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.6-rc3] - 2026-09-20
+
+### Changed
+
+- Replaced the custom `ttft` millisecond attribute with the OpenTelemetry `gen_ai.response.time_to_first_chunk` attribute expressed in seconds
+
 ## [0.1.6-rc2] - 2026-09-20
 
 ### Fixed

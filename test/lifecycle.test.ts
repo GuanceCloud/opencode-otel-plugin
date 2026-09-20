@@ -230,7 +230,7 @@ describe("trace lifecycle", () => {
           messageID: "assistant-2",
           type: "text",
           text: "Done",
-          time: { start: now + 3, end: now + 4 },
+          time: { start: now + 3000, end: now + 3001 },
         },
       },
     })
@@ -241,7 +241,7 @@ describe("trace lifecycle", () => {
           id: "assistant-2",
           sessionID: "session-1",
           role: "assistant",
-          time: { created: now + 3, completed: now + 4 },
+          time: { created: now + 3000, completed: now + 3001 },
           modelID: "gpt-test",
           providerID: "openai",
           cost: 0.02,
@@ -296,6 +296,9 @@ describe("trace lifecycle", () => {
     ])
     expect(llmSpans[1]?.attributes.input_preview).toBe("skill loaded")
     expect(llmSpans[1]?.attributes.input_length).toBe(12)
+    expect(llmSpans[1]?.attributes["gen_ai.response.time_to_first_chunk"]).toBeGreaterThan(2.9)
+    expect(llmSpans[1]?.attributes["gen_ai.response.time_to_first_chunk"]).toBeLessThanOrEqual(3)
+    expect(llmSpans[1]?.attributes.ttft).toBeUndefined()
     expect(recorded).toEqual({ workflows: 1, operations: 4, tokens: 4 })
 
     await lifecycle.dispose()
